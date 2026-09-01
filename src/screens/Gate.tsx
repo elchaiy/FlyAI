@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { rememberAccessCode, unsealIdeas } from '../lib/seal'
-import { store } from '../lib/store'
+import { applyUnlocked } from '../lib/unlock'
 import { HudFrame, SkyBackdrop, Wordmark } from '../components/Brand'
 
 interface Props {
@@ -18,8 +18,7 @@ export default function Gate({ onUnlock }: Props) {
     setBusy(true)
     setError(null)
     try {
-      const ideas = await unsealIdeas(code.trim())
-      store.hydrateIdeas(ideas)
+      await applyUnlocked(await unsealIdeas(code.trim()))
       rememberAccessCode(code.trim())
       onUnlock()
     } catch (err) {

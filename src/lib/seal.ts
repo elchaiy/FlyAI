@@ -20,12 +20,18 @@ function fromBase64(s: string): ArrayBuffer {
   return bytes.buffer
 }
 
+export interface SealedPayload {
+  ideas: Idea[]
+  /** Present when the build was sealed with cloud credentials. */
+  supabase?: { url: string; anonKey: string }
+}
+
 /**
- * Decrypts the shipped idea list with the shared code. AES-GCM authenticates,
- * so a wrong code throws rather than returning garbage — no separate check
- * value is needed, and there is nothing readable to fall back to.
+ * Decrypts the shipped payload with the shared code. AES-GCM authenticates, so
+ * a wrong code throws rather than returning garbage — no separate check value
+ * is needed, and there is nothing readable to fall back to.
  */
-export async function unsealIdeas(code: string): Promise<Idea[]> {
+export async function unsealIdeas(code: string): Promise<SealedPayload> {
   if (!globalThis.crypto?.subtle) {
     throw new Error('הדפדפן חוסם הצפנה — יש לפתוח את האתר דרך https')
   }
@@ -65,7 +71,9 @@ export async function unsealIdeas(code: string): Promise<Idea[]> {
     throw new Error('קוד שגוי')
   }
 
-  return JSON.parse(new TextDecoder().decode(plaintext)) as Idea[]
+  const decoded = JSON.parse(new TextDecoder().decode(plaintext))
+  // v1 sealed a bare array; v2 wraps ideas alongside the cloud credentials.
+  return Array.isArray(decoded) ? { ideas: decoded as Idea[] } : (decoded as SealedPayload)
 }
 
 export function savedAccessCode(): string | null {

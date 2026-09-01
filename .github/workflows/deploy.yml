@@ -28,17 +28,23 @@ jobs:
 
       - run: npm ci
 
+      - name: Fail if a credential was committed
+        run: node scripts/check-secrets.mjs
+
       - name: Scoring engine tests
         run: npm test
 
       # ideas.json is not in the repo, so the build uses the sealed copy that
       # was committed. Nothing here needs the access code.
+      # Cloud credentials are deliberately NOT injected here. Build-time env
+      # vars end up in the JS bundle, which on a public site means anyone can
+      # read the anon key without the access code and query the database
+      # directly — where the ideas sit in plain text. They travel inside the
+      # encrypted payload instead; see scripts/seal-ideas.mjs.
       - name: Build (gated)
         run: npm run build:gated
         env:
           BASE_PATH: /${{ github.event.repository.name }}/
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
 
       - name: Fail if any idea title leaked into the bundle
         run: node scripts/check-bundle.mjs

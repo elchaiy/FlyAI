@@ -3,6 +3,7 @@ import { store } from './lib/store'
 import { loadJudgeId, saveJudgeId, useAppState, useToast } from './lib/hooks'
 import { progressFor } from './lib/scoring'
 import { GATED, rememberAccessCode, savedAccessCode, unsealIdeas } from './lib/seal'
+import { applyUnlocked } from './lib/unlock'
 import Gate from './screens/Gate'
 import Login from './screens/Login'
 import IdeaList from './screens/IdeaList'
@@ -34,10 +35,8 @@ export default function App() {
     const saved = savedAccessCode()
     if (!saved) return
     void unsealIdeas(saved)
-      .then((ideas) => {
-        store.hydrateIdeas(ideas)
-        setUnlocked(true)
-      })
+      .then(applyUnlocked)
+      .then(() => setUnlocked(true))
       .catch(() => rememberAccessCode(null))
   }, [unlocked])
 

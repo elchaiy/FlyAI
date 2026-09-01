@@ -9,8 +9,9 @@
     "build:gated": "cross-env VITE_GATE=1 npm run build",
     "seal": "node scripts/seal-ideas.mjs",
     "preview": "vite preview --host",
-    "test": "node scripts/test-scoring.mjs",
-    "icons": "node scripts/make-icons.mjs"
+    "test": "node scripts/check-secrets.mjs && node scripts/test-scoring.mjs",
+    "icons": "node scripts/make-icons.mjs",
+    "check:secrets": "node scripts/check-secrets.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",
