@@ -172,10 +172,15 @@ npm run build:gated            # בנייה עם השער
 
 הקוד כבר מוכן — יש workflow שבונה ומעלה בכל push ל-`main`.
 
-```bash
+> הפקודות למטה כתובות ל-PowerShell (ברירת המחדל ב-Windows). **שורה אחת בכל
+> פעם** — Windows PowerShell 5.1 לא תומך ב-`&&` לשרשור פקודות, וינפיק
+> `The token '&&' is not a valid statement separator in this version`.
+
+```powershell
 # 1. אטום את הרעיונות עם הקוד האמיתי
 npm run seal -- "הקוד-שלך"
-git add -A && git commit -m "seal ideas"
+git add -A
+git commit -m "seal ideas"
 
 # 2. צור repo בשם FlyAI ב-github.com (ציבורי) והתחבר אליו
 git remote add origin https://github.com/<המשתמש-שלך>/FlyAI.git
