@@ -63,6 +63,15 @@ create policy anon_all on flyai_judges   for all to anon using (true) with check
 create policy anon_all on flyai_scores   for all to anon using (true) with check (true);
 create policy anon_all on flyai_settings for all to anon using (true) with check (true);
 
+-- Policies decide which rows a role may touch; table grants decide whether it
+-- may reach the table at all. A project created with "automatically expose new
+-- tables" turned off issues no grants, and the API would answer 404 despite the
+-- policies above. Granting explicitly makes this file work either way.
+grant usage on schema public to anon;
+grant select, insert, update, delete
+  on flyai_ideas, flyai_judges, flyai_scores, flyai_settings
+  to anon;
+
 -- 3. Live updates ------------------------------------------------------------
 -- Lets every open dashboard refresh the moment another judge saves a card.
 
