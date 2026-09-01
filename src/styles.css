@@ -1183,3 +1183,15 @@ table.data td:first-child {
   background: var(--surface-3);
   box-shadow: none;
 }
+
+/* A disabled segmented option must look disabled — otherwise a tap that does
+   nothing reads as a broken control rather than a locked one. */
+.segmented button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.segmented button:disabled[aria-pressed="false"] {
+  background: none;
+  box-shadow: none;
+}

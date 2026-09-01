@@ -172,9 +172,13 @@ export default function Settings({ state, judge, onSwitchJudge, onToast }: Props
             </div>
           </div>
         </div>
-        {settings.activeStage === 2 && settings.finalists.length === 0 && (
+        {settings.finalists.length === 0 && (
+          // Shown whenever stage ב׳ is locked, which is the only time anyone
+          // needs to know why it will not respond to a tap.
           <p className="muted" style={{ fontSize: 12, margin: '8px 2px 0' }}>
-            עדיין לא נקבעו מעפילים — קבע אותם מהדשבורד בשלב א׳.
+            שלב ב׳ נעול כי עדיין לא נקבעו מעפילים. סיימו לדרג בשלב א׳, ואז בדשבורד → "קבע
+            {' '}
+            {settings.shortlistSize} מעפילים".
           </p>
         )}
       </div>
