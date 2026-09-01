@@ -9,6 +9,25 @@ export interface RemoteConfig {
 const CONFIG_KEY = 'flyai.remote-config'
 
 /**
+ * Accepts whatever the Supabase dashboard happens to show.
+ *
+ * The Data API page displays the REST endpoint (…supabase.co/rest/v1/) while
+ * supabase-js wants the bare project origin and appends the path itself.
+ * Pasting the visible URL would otherwise produce /rest/v1/rest/v1/ and fail
+ * with an error that says nothing about the real cause.
+ */
+export function normalizeProjectUrl(raw: string): string {
+  let url = raw.trim()
+  if (!url) return ''
+  if (!/^https?:\/\//i.test(url)) url = 'https://' + url
+  try {
+    return new URL(url).origin
+  } catch {
+    return url.replace(/\/+$/, '')
+  }
+}
+
+/**
  * Cloud credentials come from the build env when the app is deployed, and can
  * be pasted into the settings screen otherwise — so a judge can be pointed at
  * the shared project without a rebuild.
@@ -18,19 +37,24 @@ export function loadRemoteConfig(): RemoteConfig | null {
   if (stored) {
     try {
       const parsed = JSON.parse(stored) as RemoteConfig
-      if (parsed.url && parsed.anonKey) return parsed
+      if (parsed.url && parsed.anonKey) {
+        return { url: normalizeProjectUrl(parsed.url), anonKey: parsed.anonKey.trim() }
+      }
     } catch {
       /* fall through to env */
     }
   }
   const url = import.meta.env.VITE_SUPABASE_URL as string | undefined
   const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
-  if (url && anonKey) return { url, anonKey }
+  if (url && anonKey) return { url: normalizeProjectUrl(url), anonKey: anonKey.trim() }
   return null
 }
 
 export function saveRemoteConfig(config: RemoteConfig | null): void {
-  if (config) localStorage.setItem(CONFIG_KEY, JSON.stringify(config))
+  if (config) {
+    const clean = { url: normalizeProjectUrl(config.url), anonKey: config.anonKey.trim() }
+    localStorage.setItem(CONFIG_KEY, JSON.stringify(clean))
+  }
   else localStorage.removeItem(CONFIG_KEY)
 }
 
@@ -82,7 +106,7 @@ export class Remote {
   readonly client: SupabaseClient
 
   constructor(config: RemoteConfig) {
-    this.client = createClient(config.url, config.anonKey, {
+    this.client = createClient(normalizeProjectUrl(config.url), config.anonKey.trim(), {
       auth: { persistSession: false },
       realtime: { params: { eventsPerSecond: 5 } },
     })
