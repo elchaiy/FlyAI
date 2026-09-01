@@ -1,0 +1,14 @@
+node_modules
+dist
+tsconfig.tsbuildinfo
+.env
+.env.local
+
+# GitHub Pages on a free account requires a PUBLIC repo, so anything committed
+# here is world-readable. The plaintext idea list therefore stays out of git —
+# only the encrypted public/ideas.sealed.json is committed, which is what makes
+# the access code meaningful. Keep your own copy of ideas.json locally.
+ideas.json
+
+# Brand key visual — the design source, not needed to build.
+FLY.png

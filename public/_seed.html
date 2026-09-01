@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="he">
+  <head>
+    <meta charset="utf-8" />
+    <title>seed</title>
+  </head>
+  <body>
+    <script type="module">
+      // Inert unless served locally: this page overwrites localStorage, so it
+      // must never be able to wipe a judge's real scores on a deployed build.
+      const local = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname)
+      if (!local) {
+        document.body.textContent = 'הדף הזה זמין רק בסביבת פיתוח.'
+        throw new Error('seed page disabled outside localhost')
+      }
+
+      // Dev-only fixture: fills localStorage with a plausible panel so the
+      // screens can be reviewed with real-looking data. Delete before shipping.
+      // Resolve against this page so the fixture follows the configured base path.
+      const ideas = await (await fetch(new URL('ideas.json', location.href))).json()
+
+      const judges = [
+        { id: 'j-elchai', name: 'אלחי' },
+        { id: 'j-dana', name: 'דנה לוי' },
+        { id: 'j-yossi', name: 'יוסי ברק' },
+        { id: 'j-maya', name: 'מאיה שגב' },
+      ]
+
+      // Deterministic pseudo-random so repeated runs look the same.
+      let seed = 42
+      const rnd = () => {
+        seed = (seed * 1103515245 + 12345) % 2147483648
+        return seed / 2147483648
+      }
+      const pick = (bias) => {
+        const v = Math.round(1 + rnd() * 4 + bias)
+        return Math.max(1, Math.min(5, v))
+      }
+
+      const bias = { 'j-elchai': 0, 'j-dana': 0.7, 'j-yossi': -0.8, 'j-maya': 0.2 }
+      const notes = [
+        'הצוות הגיע עם דמו עובד, מרשים.',
+        'הערך המבצעי ברור אבל האינטגרציה מורכבת.',
+        'צריך לחדד מה בדיוק ה-MVP בהקאתון.',
+        '',
+        'רעיון רוחבי — יכול לשרת כמה מוצרים.',
+      ]
+
+      const scores = []
+      for (const idea of ideas) {
+        // Not everyone reviewed everything, and a few ideas are untouched.
+        if (rnd() < 0.12) continue
+        for (const j of judges) {
+          if (rnd() < 0.35) continue
+          const b = bias[j.id]
+          scores.push({
+            judgeId: j.id,
+            ideaId: idea.id,
+            stage: 1,
+            values: {
+              maturity: pick(b),
+              infra: pick(b),
+              value: pick(b),
+              scalability: pick(b),
+              heterogeneous: rnd() < 0.4 ? 1 : 0,
+            },
+            notes: notes[Math.floor(rnd() * notes.length)],
+            starred: rnd() < 0.12,
+            skipped: false,
+            updatedAt: new Date().toISOString(),
+          })
+        }
+      }
+
+      localStorage.setItem(
+        'flyai.state.v1',
+        JSON.stringify({
+          ideas,
+          judges,
+          scores,
+          settings: {
+            weights: { maturity: 25, infra: 20, value: 25, scalability: 20, heterogeneous: 10 },
+            normalizePerJudge: false,
+            shortlistSize: 10,
+            finalists: [],
+            activeStage: 1,
+          },
+        }),
+      )
+      localStorage.setItem('flyai.pending.v1', '[]')
+      localStorage.setItem('flyai.judge', 'j-elchai')
+
+      const target = new URLSearchParams(location.search).get('to') || './'
+      location.replace(target)
+    </script>
+  </body>
+</html>

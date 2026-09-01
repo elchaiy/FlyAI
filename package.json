@@ -1,0 +1,28 @@
+{
+  "name": "flyai-judging",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host",
+    "build": "tsc -b && vite build",
+    "build:gated": "cross-env VITE_GATE=1 npm run build",
+    "seal": "node scripts/seal-ideas.mjs",
+    "preview": "vite preview --host",
+    "test": "node scripts/test-scoring.mjs",
+    "icons": "node scripts/make-icons.mjs"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.4",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.3",
+    "cross-env": "^10.1.0",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.10"
+  }
+}

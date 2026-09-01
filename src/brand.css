@@ -1,0 +1,132 @@
+/* ---------------------------------------------------------------------------
+   FlyAI Hackathon — brand tokens.
+
+   Every colour, radius and font in the app resolves through this file. To
+   re-skin the app, change values here and nothing else; styles.css references
+   roles only and contains no raw brand colours.
+
+   Palette sampled directly from the FlyAI · AI-Viation key visual:
+     night sky      #00071a → #021846        → --space-*
+     "AI" wordmark  #1a96fd → #5175f9        → --signal-*
+     HUD framing    #554b9e                  → --hud-*
+     sunrise band   #f9b96a → #fdbf87        → --horizon*
+
+   Dark is the default: the identity is a night sky, and judging happens in a
+   dim hall. Light is an explicit opt-in via [data-theme="light"].
+
+   Chart series colours were validated against the navy card surface
+   (#0c1730) with the data-viz palette validator — lightness band, chroma
+   floor, CVD separation on all pairs, and >= 3:1 contrast all pass. Re-run it
+   if you change them.
+--------------------------------------------------------------------------- */
+
+:root {
+  color-scheme: dark;
+
+  /* --- raw brand scale (do not use directly in components) --- */
+  --space-900: #04091a;
+  --space-800: #070e22;
+  --space-700: #0c1730;
+  --space-600: #132244;
+  --space-500: #1b2e58;
+  --space-400: #24386b;
+
+  --signal-cyan: #1a96fd;
+  --signal-blue: #2d8cfe;
+  --signal-indigo: #5175f9;
+  --signal-violet: #7b61ff;
+
+  --horizon: #f9b96a;
+  --horizon-soft: #fdbf87;
+
+  --ink-100: #ffffff;
+  --ink-200: #c3cfe8;
+  --ink-300: #8b9abb;
+  --ink-400: #61708f;
+
+  /* --- semantic roles (what components actually use) --- */
+  --page: var(--space-900);
+  --surface-1: var(--space-700);
+  --surface-2: var(--space-600);
+  --surface-3: var(--space-500);
+
+  --text-primary: var(--ink-100);
+  --text-secondary: var(--ink-200);
+  --text-muted: var(--ink-300);
+
+  --grid: #1a2a4d;
+  --axis: #2b3f70;
+  --border: rgba(145, 175, 235, 0.14);
+  --border-strong: rgba(145, 175, 235, 0.28);
+
+  --accent: var(--signal-blue);
+  --accent-ink: #04091a;
+  --accent-soft: rgba(45, 140, 254, 0.16);
+
+  /* The wordmark gradient, reused for primary actions and progress. */
+  --brand-gradient: linear-gradient(100deg, var(--signal-cyan), var(--signal-violet));
+  --hud-line: rgba(99, 140, 255, 0.55);
+  --hud-glow: rgba(45, 140, 254, 0.22);
+
+  /* Chart series — validated on --surface-1. */
+  --series-1: #2d8cfe;
+  --series-2: #d95926;
+  --series-3: #199e70;
+
+  --good: #0ca30c;
+  --warning: var(--horizon);
+  --serious: #ec835a;
+  --critical: #e66767;
+  --success-text: #35c956;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.45);
+  --shadow-md: 0 10px 30px rgba(0, 0, 0, 0.55);
+
+  --radius: 14px;
+  --radius-sm: 10px;
+  --tap: 44px;
+
+  --font: system-ui, -apple-system, "Segoe UI", "Noto Sans Hebrew", "Arial Hebrew", sans-serif;
+}
+
+/* --- light mode: the same identity, inverted for daylight ---------------- */
+
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --page: #eef2fa;
+  --surface-1: #ffffff;
+  --surface-2: #f4f7fd;
+  --surface-3: #e6ecf8;
+
+  --text-primary: #071026;
+  --text-secondary: #3c4a68;
+  --text-muted: #66748f;
+
+  --grid: #dde4f2;
+  --axis: #b9c4da;
+  --border: rgba(7, 16, 38, 0.12);
+  --border-strong: rgba(7, 16, 38, 0.2);
+
+  --accent: #1568d8;
+  --accent-ink: #ffffff;
+  --accent-soft: rgba(21, 104, 216, 0.12);
+
+  --brand-gradient: linear-gradient(100deg, #1568d8, #6d4ff0);
+  --hud-line: rgba(21, 104, 216, 0.35);
+  --hud-glow: rgba(21, 104, 216, 0.12);
+
+  /* Re-stepped for the white surface, not reused from the dark set. */
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+
+  --good: #0ca30c;
+  --warning: #fab219;
+  --serious: #ec835a;
+  --critical: #d03b3b;
+  --success-text: #006300;
+
+  --shadow-sm: 0 1px 2px rgba(7, 16, 38, 0.07);
+  --shadow-md: 0 8px 24px rgba(7, 16, 38, 0.12);
+}
