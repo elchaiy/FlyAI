@@ -1,50 +1,46 @@
 /**
- * Sanity checks for the scoring engine. Bundled through esbuild so the real
- * TypeScript source is exercised, not a copy of it.
+ * Sanity checks for the scoring engine.
+ *
  *   node scripts/test-scoring.mjs
+ *
+ * The TypeScript sources are bundled through esbuild's JS API and imported as
+ * plain ESM. Node 22+ can import .ts directly and older versions cannot, so
+ * doing this unconditionally keeps the test identical on every Node version
+ * instead of taking a different path in CI than on a developer machine.
  */
-import { execFileSync } from 'node:child_process'
-import { mkdtempSync, rmSync } from 'node:fs'
+import { build } from 'esbuild'
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, dirname } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const tmp = mkdtempSync(join(tmpdir(), 'flyai-test-'))
-const bundle = join(tmp, 'scoring.mjs')
 
-execFileSync(
-  process.execPath,
+// One entry point re-exporting both modules, so a single bundle carries
+// everything the checks touch and the two stay on the same copy of the code.
+const entry = join(tmp, 'entry.ts')
+writeFileSync(
+  entry,
   [
-    join(root, 'node_modules', 'esbuild', 'bin', 'esbuild'),
-    join(root, 'src', 'lib', 'scoring.ts'),
-    '--bundle',
-    '--format=esm',
-    '--platform=node',
-    `--outfile=${bundle}`,
-  ],
-  { stdio: 'inherit' },
+    `export * from ${JSON.stringify(join(root, 'src', 'lib', 'scoring.ts'))}`,
+    `export * from ${JSON.stringify(join(root, 'src', 'lib', 'criteria.ts'))}`,
+  ].join('\n'),
 )
 
-const { computeResults, compositeScore, normalizeValue } = await import(pathToFileURL(bundle))
-const { CRITERIA, DEFAULT_SETTINGS } = await import(
-  pathToFileURL(join(root, 'src', 'lib', 'criteria.ts'))
-).catch(async () => {
-  const b2 = join(tmp, 'criteria.mjs')
-  execFileSync(
-    process.execPath,
-    [
-      join(root, 'node_modules', 'esbuild', 'bin', 'esbuild'),
-      join(root, 'src', 'lib', 'criteria.ts'),
-      '--bundle',
-      '--format=esm',
-      '--platform=node',
-      `--outfile=${b2}`,
-    ],
-    { stdio: 'inherit' },
-  )
-  return import(pathToFileURL(b2))
+const bundle = join(tmp, 'engine.mjs')
+await build({
+  entryPoints: [entry],
+  outfile: bundle,
+  bundle: true,
+  format: 'esm',
+  platform: 'node',
+  logLevel: 'warning',
 })
+
+const { computeResults, compositeScore, normalizeValue, CRITERIA, DEFAULT_SETTINGS } = await import(
+  pathToFileURL(bundle).href
+)
 
 let failures = 0
 function check(name, actual, expected, tolerance = 1e-6) {
