@@ -19,6 +19,7 @@ export default function Settings({ state, judge, onSwitchJudge, onToast }: Props
   const [url, setUrl] = useState(existing?.url ?? '')
   const [anonKey, setAnonKey] = useState(existing?.anonKey ?? '')
   const [busy, setBusy] = useState(false)
+  const [advanced, setAdvanced] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
   const patch = (next: Partial<SettingsType>) => store.saveSettings({ ...settings, ...next })
@@ -192,43 +193,16 @@ export default function Settings({ state, judge, onSwitchJudge, onToast }: Props
           </span>
         </div>
         <div className="card" style={{ padding: 12 }}>
-          <label className="field">
-            <span className="field__label">Supabase Project URL</span>
-            <input
-              className="input"
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              placeholder="https://xxxx.supabase.co"
-              dir="ltr"
-              autoCapitalize="off"
-              autoCorrect="off"
-            />
-          </label>
-          <label className="field">
-            <span className="field__label">Anon key</span>
-            <input
-              className="input"
-              value={anonKey}
-              onChange={(e) => setAnonKey(e.target.value)}
-              placeholder="eyJhbGciOi…"
-              dir="ltr"
-              autoCapitalize="off"
-              autoCorrect="off"
-            />
-          </label>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button className="btn btn--primary btn--block" onClick={connect} disabled={busy}>
-              {url.trim() ? 'התחבר' : 'עבודה מקומית בלבד'}
-            </button>
-            <button
-              className="btn"
-              onClick={seed}
-              disabled={busy || state.sync !== 'online'}
-              title="העלאת רשימת הרעיונות וההגדרות לפרויקט ריק"
-            >
-              אתחול הענן
-            </button>
-          </div>
+          <p style={{ margin: '0 0 4px', fontSize: 14 }}>
+            {state.sync === 'online'
+              ? 'מחובר לענן המשותף — הציונים של כל השופטים מתאחדים בדשבורד.'
+              : state.sync === 'local'
+                ? 'עובד מקומית. הציונים נשמרים במכשיר בלבד.'
+                : 'הענן לא זמין כרגע. אפשר להמשיך לדרג — הכל יסתנכרן כשהחיבור יחזור.'}
+          </p>
+          <p className="muted" style={{ fontSize: 12, margin: 0 }}>
+            ההתחברות מגיעה יחד עם קוד הכניסה. אין צורך להזין דבר.
+          </p>
           {state.syncError && (
             <p style={{ fontSize: 12, color: 'var(--critical)', margin: '8px 0 0' }}>
               {state.syncError}
@@ -238,6 +212,65 @@ export default function Settings({ state, judge, onSwitchJudge, onToast }: Props
             <p className="muted" style={{ fontSize: 11.5, margin: '8px 0 0' }}>
               סונכרן לאחרונה {new Date(state.lastSync).toLocaleTimeString('he-IL')}
             </p>
+          )}
+
+          {/* Kept as an escape hatch, but folded away: judges never need it,
+              and an open key field puts the credential on screen for anyone
+              glancing at the phone. */}
+          <button
+            className="btn btn--sm btn--ghost"
+            style={{ marginTop: 10, paddingInline: 0 }}
+            aria-expanded={advanced}
+            onClick={() => setAdvanced(!advanced)}
+          >
+            {advanced ? 'הסתר הגדרות מתקדמות' : 'הגדרות מתקדמות'}
+          </button>
+
+          {advanced && (
+            <div style={{ marginTop: 8, paddingTop: 12, borderTop: '1px solid var(--grid)' }}>
+              <label className="field">
+                <span className="field__label">Supabase Project URL</span>
+                <input
+                  className="input"
+                  value={url}
+                  onChange={(e) => setUrl(e.target.value)}
+                  placeholder="https://xxxx.supabase.co"
+                  dir="ltr"
+                  autoCapitalize="off"
+                  autoCorrect="off"
+                />
+              </label>
+              <label className="field">
+                <span className="field__label">Anon key</span>
+                <input
+                  className="input"
+                  type="password"
+                  value={anonKey}
+                  onChange={(e) => setAnonKey(e.target.value)}
+                  placeholder="sb_publishable_…"
+                  dir="ltr"
+                  autoCapitalize="off"
+                  autoCorrect="off"
+                />
+              </label>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="btn btn--primary btn--block" onClick={connect} disabled={busy}>
+                  {url.trim() ? 'התחבר' : 'נתק מהענן'}
+                </button>
+                <button
+                  className="btn"
+                  onClick={seed}
+                  disabled={busy || state.sync !== 'online'}
+                  title="העלאת רשימת הרעיונות לפרויקט ריק"
+                >
+                  אתחול הענן
+                </button>
+              </div>
+              <p className="muted" style={{ fontSize: 11.5, margin: '10px 0 0' }}>
+                "אתחול הענן" מעלה את רשימת הרעיונות וההגדרות מהמכשיר הזה. מיועד להרצה אחת
+                בהקמה — הרצה מאוחרת יותר תדרוס את הגדרות הפאנל בענן.
+              </p>
+            </div>
           )}
         </div>
       </div>
