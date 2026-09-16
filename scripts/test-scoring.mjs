@@ -38,7 +38,17 @@ await build({
   logLevel: 'warning',
 })
 
-const { computeResults, compositeScore, normalizeValue, CRITERIA, DEFAULT_SETTINGS } = await import(
+const {
+  computeResults,
+  compositeScore,
+  normalizeValue,
+  isComplete,
+  isNotForHackathon,
+  setNotForHackathon,
+  NOT_FOR_HACKATHON,
+  CRITERIA,
+  DEFAULT_SETTINGS,
+} = await import(
   pathToFileURL(bundle).href
 )
 
@@ -204,6 +214,45 @@ console.log('\nzero weight removes a criterion from the calculation')
     compositeScore(card('j', 1, full(5, 0)), noHet.weights),
     100,
   )
+}
+
+console.log('\n"good idea, but not for the hackathon" flag')
+{
+  // The flag is a routing decision, not a rating, and it was added while
+  // judging was already under way — so it must be completely inert.
+  const plain = card('j', 1, full(4, 1))
+  const flagged = card('j', 1, setNotForHackathon(full(4, 1), true))
+  check(
+    'flag does not move the composite score',
+    compositeScore(flagged, settings.weights),
+    compositeScore(plain, settings.weights),
+  )
+  check('a flagged card is still complete', isComplete({ ...flagged, updatedAt: 'x' }), true)
+  check('flag reads back', isNotForHackathon(flagged), true)
+  check('an unflagged card reads false', isNotForHackathon(plain), false)
+
+  // Cards written before the flag existed must behave exactly as they did.
+  const legacy = card('a', 1, full(3, 0))
+  check('a card from before the flag has none', isNotForHackathon(legacy), false)
+  check('a card from before the flag scores the same', compositeScore(legacy, settings.weights), 45)
+
+  const scores = [
+    card('a', 1, setNotForHackathon(full(4, 1), true)),
+    card('b', 1, full(4, 1)),
+    card('a', 2, full(2, 0)),
+  ]
+  const { results } = computeResults(ideas, scores, settings, 1)
+  const one = results.find((r) => r.idea.id === 1)
+  check('counts only the judges who flagged it', one.notForHackathon, 1)
+  check('every judge still counts toward the score', one.judgeCount, 2)
+  check('an idea nobody flagged reports zero', results.find((r) => r.idea.id === 2).notForHackathon, 0)
+
+  check(
+    'clearing the flag restores the original values map',
+    JSON.stringify(setNotForHackathon(setNotForHackathon(full(4, 1), true), false)),
+    JSON.stringify(full(4, 1)),
+  )
+  check('the reserved key cannot collide with a criterion', NOT_FOR_HACKATHON.includes(':'), true)
 }
 
 rmSync(tmp, { recursive: true, force: true })

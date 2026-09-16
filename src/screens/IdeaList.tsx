@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react'
-import { compositeScore, isComplete } from '../lib/scoring'
+import { compositeScore, isComplete, isNotForHackathon } from '../lib/scoring'
 import type { Idea, Score, Settings, Stage } from '../lib/types'
 import { IconStar } from '../components/Icons'
 
-type Filter = 'all' | 'todo' | 'done' | 'starred'
+type Filter = 'all' | 'todo' | 'done' | 'starred' | 'notForHackathon'
 
 interface Props {
   ideas: Idea[]
@@ -34,6 +34,7 @@ export default function IdeaList({ ideas, scores, settings, stage, judgeId, onOp
       if (filter === 'todo' && done) return false
       if (filter === 'done' && !done) return false
       if (filter === 'starred' && !score?.starred) return false
+      if (filter === 'notForHackathon' && !isNotForHackathon(score)) return false
       if (!q) return true
       return (
         idea.title.toLowerCase().includes(q) ||
@@ -47,6 +48,8 @@ export default function IdeaList({ ideas, scores, settings, stage, judgeId, onOp
     const s = mine.get(i.id)
     return isComplete(s) || !!s?.skipped
   }).length
+
+  const flaggedCount = ideas.filter((i) => isNotForHackathon(mine.get(i.id))).length
 
   const pct = ideas.length ? Math.round((doneCount / ideas.length) * 100) : 0
 
@@ -84,6 +87,7 @@ export default function IdeaList({ ideas, scores, settings, stage, judgeId, onOp
             ['todo', `לשיפוט (${ideas.length - doneCount})`],
             ['done', `הושלמו (${doneCount})`],
             ['starred', 'מסומנים'],
+            ['notForHackathon', `לא להקאתון (${flaggedCount})`],
           ] as [Filter, string][]
         ).map(([key, label]) => (
           <button key={key} aria-pressed={filter === key} onClick={() => setFilter(key)}>
@@ -112,6 +116,9 @@ export default function IdeaList({ ideas, scores, settings, stage, judgeId, onOp
                   <span className="idea-row__meta">
                     <span>{idea.leader}</span>
                     {score?.starred && <IconStar filled />}
+                    {isNotForHackathon(score) && (
+                      <span className="pill pill--accent">לא להקאתון</span>
+                    )}
                     {score?.skipped && <span className="pill">לא דורג</span>}
                     {score && !done && !score.skipped && <span className="pill pill--warn">חלקי</span>}
                   </span>

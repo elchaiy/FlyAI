@@ -66,6 +66,22 @@ export const CRITERIA_BY_KEY: Record<string, Criterion> = Object.fromEntries(
   CRITERIA.map((c) => [c.key, c]),
 )
 
+/**
+ * A judge's verdict that an idea is worth doing but does not belong in the
+ * hackathon. It is a routing decision, not a quality rating, so it carries no
+ * weight and never enters the composite score.
+ *
+ * It rides inside `Score.values` under a reserved, prefixed key rather than as
+ * its own database column: adding a column mid-event would mean every client
+ * sending a field the table does not have yet, and PostgREST rejects the whole
+ * upsert on an unknown column — every judge's saves would fail until the
+ * migration ran. Stored this way it needs no migration at all, and rows written
+ * before the flag existed simply lack the key.
+ */
+export const NOT_FOR_HACKATHON = 'flag:notForHackathon'
+
+export const NOT_FOR_HACKATHON_LABEL = 'רעיון טוב — אבל לא להקאתון'
+
 export const DEFAULT_SETTINGS: Settings = {
   weights: {
     maturity: 25,

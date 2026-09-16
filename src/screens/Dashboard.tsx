@@ -67,6 +67,7 @@ export default function Dashboard({
       'מס׳ שופטים',
       'פער בין שופטים',
       'סימונים',
+      'לא להקאתון',
       ...CRITERIA.map((c) => c.label),
     ]
     const rows = results.map((r) => [
@@ -78,6 +79,7 @@ export default function Dashboard({
       r.judgeCount,
       r.judgeCount > 1 ? r.disagreement.toFixed(1) : '',
       r.stars,
+      r.notForHackathon,
       ...CRITERIA.map((c) => {
         const v = r.perCriterion[c.key]
         return v === null ? '' : v.toFixed(1)
@@ -325,6 +327,9 @@ function RankRow({
         <span>·</span>
         <span>{result.judgeCount} שופטים</span>
         {result.stars > 0 && <span className="pill pill--warn">★ {result.stars}</span>}
+        {result.notForHackathon > 0 && (
+          <span className="pill pill--accent">לא להקאתון · {result.notForHackathon}</span>
+        )}
         {finalist && <span className="pill pill--accent">מעפיל</span>}
         {band && band.tone !== 'good' && (
           <span className={`pill pill--${band.tone}`}>⚠ {band.label}</span>

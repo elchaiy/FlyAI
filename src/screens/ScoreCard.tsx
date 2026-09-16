@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { CRITERIA } from '../lib/criteria'
-import { compositeScore, isComplete } from '../lib/scoring'
+import { CRITERIA, NOT_FOR_HACKATHON_LABEL } from '../lib/criteria'
+import { compositeScore, isComplete, isNotForHackathon, setNotForHackathon } from '../lib/scoring'
 import { store } from '../lib/store'
 import type { Idea, Score, Settings, Stage } from '../lib/types'
 import { IconStar } from '../components/Icons'
@@ -68,6 +68,7 @@ export default function ScoreCard({
     [draft, settings.weights],
   )
   const complete = isComplete({ ...draft, updatedAt: '' })
+  const flagged = isNotForHackathon({ ...draft, updatedAt: '' })
 
   if (!idea) return <div className="empty">הרעיון לא נמצא.</div>
 
@@ -184,6 +185,27 @@ export default function ScoreCard({
           </div>
         )
       })}
+
+      <div className="card">
+        <div className="switch-row">
+          <span className="switch-row__body">
+            <span className="switch-row__title">{NOT_FOR_HACKATHON_LABEL}</span>
+            <span className="switch-row__desc">
+              שווה לקדם אותו בערוץ אחר, אבל הוא לא מתאים לפורמט ההקאתון. הסימון לא משפיע על
+              הציון — הוא רק מסמן את הרעיון להמשך טיפול.
+            </span>
+          </span>
+          <button
+            className="switch"
+            role="switch"
+            aria-checked={flagged}
+            aria-label={NOT_FOR_HACKATHON_LABEL}
+            onClick={() =>
+              commit({ ...draft, values: setNotForHackathon(draft.values, !flagged) })
+            }
+          />
+        </div>
+      </div>
 
       <div className="card criterion">
         <label className="field" style={{ marginBottom: 0 }}>

@@ -1,5 +1,21 @@
-import { CRITERIA, CRITERIA_BY_KEY } from './criteria'
+import { CRITERIA, CRITERIA_BY_KEY, NOT_FOR_HACKATHON } from './criteria'
 import type { Criterion, Idea, Score, Settings, Stage } from './types'
+
+/** Did this judge mark the idea as worth doing, but not in the hackathon? */
+export function isNotForHackathon(score: Score | undefined): boolean {
+  return score?.values[NOT_FOR_HACKATHON] === 1
+}
+
+/** Returns a values map with the flag set or cleared, leaving ratings intact. */
+export function setNotForHackathon(
+  values: Record<string, number>,
+  on: boolean,
+): Record<string, number> {
+  const next = { ...values }
+  if (on) next[NOT_FOR_HACKATHON] = 1
+  else delete next[NOT_FOR_HACKATHON]
+  return next
+}
 
 /** Map a raw criterion value onto 0..1 regardless of its kind. */
 export function normalizeValue(criterion: Criterion, raw: number): number {
@@ -67,6 +83,8 @@ export interface IdeaResult {
   /** Spread between the highest and lowest judge, in points. */
   disagreement: number
   stars: number
+  /** How many judges marked it good but out of scope for the hackathon. */
+  notForHackathon: number
   scores: Score[]
   rank: number
 }
@@ -166,6 +184,7 @@ export function computeResults(
       perCriterion,
       disagreement: rawList.length > 1 ? Math.max(...rawList) - Math.min(...rawList) : 0,
       stars: ideaScores.filter((s) => s.starred).length,
+      notForHackathon: ideaScores.filter(isNotForHackathon).length,
       scores: ideaScores,
       rank: 0,
     }
