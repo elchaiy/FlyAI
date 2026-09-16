@@ -24,6 +24,8 @@ export interface SealedPayload {
   ideas: Idea[]
   /** Present when the build was sealed with cloud credentials. */
   supabase?: { url: string; anonKey: string }
+  /** Fingerprint of the id→title mapping; changes when the list is reissued. */
+  listVersion?: string
 }
 
 /**

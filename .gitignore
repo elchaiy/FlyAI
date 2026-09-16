@@ -7,7 +7,10 @@ tsconfig.tsbuildinfo
 # GitHub Pages on a free account requires a PUBLIC repo, so anything committed
 # here is world-readable. The plaintext idea list therefore stays out of git —
 # only the encrypted public/ideas.sealed.json is committed, which is what makes
-# the access code meaningful. Keep your own copy of ideas.json locally.
+# the access code meaningful. Keep your own copy of # Any idea list, whatever it is called. A file named ideas2.json once sat
+# here untracked and would have been committed by the next `git add -A`.
+ideas*.json
+!public/ideas.sealed.json locally.
 ideas.json
 
 # Brand key visual — the design source, not needed to build.

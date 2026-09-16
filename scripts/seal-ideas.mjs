@@ -18,7 +18,7 @@
  * environment. They are optional: without them the app still works locally and
  * each judge can paste their own in Settings.
  */
-import { webcrypto as crypto } from 'node:crypto'
+import { webcrypto as crypto, createHash } from 'node:crypto'
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -49,7 +49,15 @@ const supabaseKey = (env.SUPABASE_ANON_KEY || env.VITE_SUPABASE_ANON_KEY || '').
 
 const ideas = JSON.parse(readFileSync(join(root, 'ideas.json'), 'utf8'))
 
-const payload = { v: 2, ideas }
+// Fingerprints the list so a device can tell that ids now mean different
+// ideas — renumbering once made id 7 point at a different project entirely,
+// and stale local scores would have attached to the wrong one in silence.
+const listVersion = createHash('sha256')
+  .update(ideas.map((i) => i.id + ':' + i.title).join('|'))
+  .digest('hex')
+  .slice(0, 12)
+
+const payload = { v: 2, listVersion, ideas }
 if (supabaseUrl && supabaseKey) {
   // Store the bare origin; the dashboard shows the REST path, which the
   // client would double up on.
@@ -99,7 +107,7 @@ writeFileSync(
   }),
 )
 
-console.log(`sealed ${ideas.length} ideas -> public/ideas.sealed.json`)
+console.log(`sealed ${ideas.length} ideas (list ${listVersion}) -> public/ideas.sealed.json`)
 console.log(
   payload.supabase
     ? `cloud credentials sealed too (${payload.supabase.url}) — judges connect automatically`

@@ -233,6 +233,19 @@ export class Store {
     this.emit({ ideas })
   }
 
+  /**
+   * Discards every locally held score. Used when the idea list is reissued
+   * with different ids: a score keyed to id 7 was cast on whatever idea 7
+   * used to be, and keeping it would silently credit a different project.
+   */
+  dropAllScores(): number {
+    const dropped = this.state.scores.length
+    if (!dropped) return 0
+    this.pending.clear()
+    this.emit({ scores: [] })
+    return dropped
+  }
+
   /** One-time upload of the bundled idea list into an empty cloud project. */
   async seedRemote(): Promise<void> {
     if (!this.remote) throw new Error('אין חיבור לענן')

@@ -10,7 +10,19 @@ import { store } from './store'
  * pointed their device at a different project in Settings keeps that choice —
  * otherwise every reload would silently undo it.
  */
+const LIST_VERSION_KEY = 'flyai.list-version'
+
 export async function applyUnlocked(payload: SealedPayload): Promise<void> {
+  // A reissued list can reuse ids for different ideas — the audition list
+  // renumbered 37 of 53 that way. Scores held on this device were cast on the
+  // previous meaning of those ids, so they are discarded rather than quietly
+  // reattached to whatever now sits at that number.
+  if (payload.listVersion) {
+    const seen = localStorage.getItem(LIST_VERSION_KEY)
+    if (seen && seen !== payload.listVersion) store.dropAllScores()
+    localStorage.setItem(LIST_VERSION_KEY, payload.listVersion)
+  }
+
   store.hydrateIdeas(payload.ideas)
 
   const sealed = payload.supabase
