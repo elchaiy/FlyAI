@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { CRITERIA } from '../lib/criteria'
-import { computeResults, type IdeaResult } from '../lib/scoring'
+import { computeResults, verdictOf, type IdeaResult } from '../lib/scoring'
 import type { Idea, Judge, Score, Settings, Stage } from '../lib/types'
 
 interface Props {
@@ -16,6 +16,17 @@ interface Props {
 /** Signed points. Rendered inside dir="ltr" so bidi keeps the sign in front. */
 function signed(n: number): string {
   return (n >= 0 ? '+' : '−') + Math.abs(n).toFixed(1)
+}
+
+/**
+ * The panel's standing on an idea. A tie between the two camps is its own
+ * state: it is the one result the panel has to resolve rather than read.
+ */
+function verdictTone(result: IdeaResult): 'good' | 'crit' | 'warn' | 'none' {
+  if (result.wantIn + result.wantOut === 0) return 'none'
+  if (result.net > 0) return 'good'
+  if (result.net < 0) return 'crit'
+  return 'warn'
 }
 
 /** Spread between judges, banded so a number turns into an action. */
@@ -48,12 +59,14 @@ export default function Dashboard({
     [ideas, scores, settings, stage],
   )
 
-  const ranked = results.filter((r) => r.score !== null)
+  // A judge who only gave a verdict still puts the idea on the board, so the
+  // list follows the ranking rather than the presence of a composite score.
+  const ranked = results.filter((r) => r.rank > 0)
   const cut = stage === 1 ? settings.shortlistSize : 0
 
-  const avg = ranked.length
-    ? ranked.reduce((a, r) => a + (r.score ?? 0), 0) / ranked.length
-    : 0
+  const scored = ranked.filter((r) => r.score !== null)
+  const avg = scored.length ? scored.reduce((a, r) => a + (r.score ?? 0), 0) / scored.length : 0
+  const wanted = ranked.filter((r) => r.net > 0).length
   const contested = ranked.filter((r) => r.judgeCount > 1 && r.disagreement >= 25).length
   const activeJudges = calibration.length
 
@@ -63,11 +76,13 @@ export default function Dashboard({
       'מזהה',
       'רעיון',
       'מוביל',
+      'בעד',
+      'נגד',
+      'נטו',
       'ציון משוקלל',
       'מס׳ שופטים',
       'פער בין שופטים',
       'סימונים',
-      'לא להקאתון',
       ...CRITERIA.map((c) => c.label),
     ]
     const rows = results.map((r) => [
@@ -75,11 +90,13 @@ export default function Dashboard({
       r.idea.id,
       r.idea.title,
       r.idea.leader,
+      r.wantIn,
+      r.wantOut,
+      r.net,
       r.score === null ? '' : r.score.toFixed(1),
       r.judgeCount,
       r.judgeCount > 1 ? r.disagreement.toFixed(1) : '',
       r.stars,
-      r.notForHackathon,
       ...CRITERIA.map((c) => {
         const v = r.perCriterion[c.key]
         return v === null ? '' : v.toFixed(1)
@@ -114,7 +131,11 @@ export default function Dashboard({
       <div className="stat-row">
         <div className="stat">
           <div className="stat__value">{scoredCount}</div>
-          <div className="stat__label">רעיונות דורגו</div>
+          <div className="stat__label">רעיונות נשפטו</div>
+        </div>
+        <div className="stat">
+          <div className="stat__value">{wanted}</div>
+          <div className="stat__label">רוב בעד</div>
         </div>
         <div className="stat">
           <div className="stat__value">{activeJudges}</div>
@@ -147,8 +168,9 @@ export default function Dashboard({
       {view === 'chart' && (
           <div className="section">
             <div className="section__head">
-              <span className="section__title">דירוג משוקלל</span>
+              <span className="section__title">דירוג הפאנל</span>
               <span className="section__note">
+                בעד:נגד ·{' '}
                 {settings.normalizePerJudge ? 'מנורמל לפי שופט' : 'ממוצע גולמי'}
               </span>
             </div>
@@ -270,7 +292,13 @@ export default function Dashboard({
           <button
             className="btn btn--primary btn--block"
             onClick={() => {
-              const ids = ranked.slice(0, settings.shortlistSize).map((r) => r.idea.id)
+              // An idea the panel voted against does not get carried into the
+              // hackathon by a shortlist that ran out of candidates, so the
+              // cut can come back shorter than the target — the toast says so.
+              const ids = ranked
+                .filter((r) => r.net >= 0)
+                .slice(0, settings.shortlistSize)
+                .map((r) => r.idea.id)
               onSetFinalists(ids)
               onToast(`${ids.length} רעיונות הועברו לשלב ב׳`)
             }}
@@ -312,7 +340,15 @@ function RankRow({
       <span className="rank-row__top">
         <span className="rank-row__pos">{result.rank}</span>
         <span className="rank-row__name">{result.idea.title}</span>
-        <span className="rank-row__val">{score.toFixed(1)}</span>
+        <span
+          className={`tally tally--${verdictTone(result)}`}
+          dir="ltr"
+          aria-label={`${result.wantIn} בעד, ${result.wantOut} נגד`}
+        >
+          {result.wantIn}
+          <span className="tally__sep">:</span>
+          {result.wantOut}
+        </span>
       </span>
 
       <span className="bar-track">
@@ -326,9 +362,15 @@ function RankRow({
         <span>{result.idea.leader}</span>
         <span>·</span>
         <span>{result.judgeCount} שופטים</span>
+        {result.score !== null && (
+          <>
+            <span>·</span>
+            <span>ציון {result.score.toFixed(1)}</span>
+          </>
+        )}
         {result.stars > 0 && <span className="pill pill--warn">★ {result.stars}</span>}
-        {result.notForHackathon > 0 && (
-          <span className="pill pill--accent">לא להקאתון · {result.notForHackathon}</span>
+        {result.wantIn > 0 && result.wantOut > 0 && (
+          <span className="pill pill--warn">פאנל חצוי</span>
         )}
         {finalist && <span className="pill pill--accent">מעפיל</span>}
         {band && band.tone !== 'good' && (
@@ -356,14 +398,24 @@ function RankRow({
             className="rank-row__meta"
             style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}
           >
-            {result.scores.map((s) => (
-              <span key={s.judgeId}>
-                <b style={{ color: 'var(--text-secondary)' }}>
-                  {judgeName.get(s.judgeId) ?? 'שופט'}:
-                </b>{' '}
-                {s.notes || 'ללא הערות'}
-              </span>
-            ))}
+            {result.scores.map((s) => {
+              const verdict = verdictOf(s)
+              return (
+                <span key={s.judgeId}>
+                  <b style={{ color: 'var(--text-secondary)' }}>
+                    {judgeName.get(s.judgeId) ?? 'שופט'}:
+                  </b>{' '}
+                  {verdict && (
+                    <>
+                      <span className={`pill pill--${verdict === 'in' ? 'good' : 'crit'}`}>
+                        {verdict === 'in' ? 'בעד' : 'נגד'}
+                      </span>{' '}
+                    </>
+                  )}
+                  {s.notes || 'ללא הערות'}
+                </span>
+              )
+            })}
           </span>
         </>
       )}
@@ -378,6 +430,8 @@ function TableView({ results }: { results: IdeaResult[] }) {
         <thead>
           <tr>
             <th>רעיון</th>
+            <th>בעד</th>
+            <th>נגד</th>
             <th>ציון</th>
             <th>שופטים</th>
             <th>פער</th>
@@ -393,6 +447,8 @@ function TableView({ results }: { results: IdeaResult[] }) {
                 {r.rank ? `${r.rank}. ` : ''}
                 {r.idea.title}
               </td>
+              <td>{r.wantIn}</td>
+              <td>{r.wantOut}</td>
               <td>{r.score === null ? '—' : r.score.toFixed(1)}</td>
               <td>{r.judgeCount}</td>
               <td>{r.judgeCount > 1 ? r.disagreement.toFixed(1) : '—'}</td>

@@ -43,9 +43,10 @@ const {
   compositeScore,
   normalizeValue,
   isComplete,
-  isNotForHackathon,
-  setNotForHackathon,
-  NOT_FOR_HACKATHON,
+  verdictOf,
+  setVerdict,
+  VERDICT,
+  LEGACY_FLAG,
   CRITERIA,
   DEFAULT_SETTINGS,
 } = await import(
@@ -216,43 +217,89 @@ console.log('\nzero weight removes a criterion from the calculation')
   )
 }
 
-console.log('\n"good idea, but not for the hackathon" flag')
+console.log('\nthe judge verdict')
 {
-  // The flag is a routing decision, not a rating, and it was added while
-  // judging was already under way — so it must be completely inert.
-  const plain = card('j', 1, full(4, 1))
-  const flagged = card('j', 1, setNotForHackathon(full(4, 1), true))
+  const undecided = card('j', 1, full(4, 1))
+  const wantsIn = card('j', 1, setVerdict(full(4, 1), 'in'))
+  const wantsOut = card('j', 1, setVerdict(full(4, 1), 'out'))
+
+  check('a fresh card has no verdict', verdictOf(undecided), null)
+  check('in reads back', verdictOf(wantsIn), 'in')
+  check('out reads back', verdictOf(wantsOut), 'out')
+  check('the reserved key cannot collide with a criterion', VERDICT.includes(':'), true)
   check(
-    'flag does not move the composite score',
-    compositeScore(flagged, settings.weights),
-    compositeScore(plain, settings.weights),
+    'clearing the verdict restores the original values map',
+    JSON.stringify(setVerdict(setVerdict(full(4, 1), 'out'), null)),
+    JSON.stringify(full(4, 1)),
   )
-  check('a flagged card is still complete', isComplete({ ...flagged, updatedAt: 'x' }), true)
-  check('flag reads back', isNotForHackathon(flagged), true)
-  check('an unflagged card reads false', isNotForHackathon(plain), false)
 
-  // Cards written before the flag existed must behave exactly as they did.
-  const legacy = card('a', 1, full(3, 0))
-  check('a card from before the flag has none', isNotForHackathon(legacy), false)
-  check('a card from before the flag scores the same', compositeScore(legacy, settings.weights), 45)
+  // A decision is not a rating: it must never move the number.
+  check(
+    'a verdict does not move the composite score',
+    compositeScore(wantsOut, settings.weights),
+    compositeScore(undecided, settings.weights),
+  )
 
+  // Completeness now means "rated and decided" — either half on its own is an
+  // unfinished card, and the judge should see it as one.
+  check('a fully rated card with no verdict is not complete', isComplete(undecided), false)
+  check('the verdict finishes it', isComplete(wantsIn), true)
+  check(
+    'a verdict with no ratings is not complete',
+    isComplete(card('j', 1, setVerdict({}, 'in'))),
+    false,
+  )
+  check(
+    'a skipped card stays incomplete whatever it holds',
+    isComplete(card('j', 1, setVerdict(full(4, 1), 'in'), { skipped: true })),
+    false,
+  )
+
+  // The retired flag meant the opposite of what a 1 means now, so a card
+  // carrying it must not be read as a verdict — and must not keep it.
+  const legacy = { ...full(4, 1), [LEGACY_FLAG]: 1 }
+  check('the retired flag does not read as a verdict', verdictOf(card('j', 1, legacy)), null)
+  check('answering strips the retired flag', LEGACY_FLAG in setVerdict(legacy, 'out'), false)
+}
+
+console.log('\nthe verdict leads the ranking')
+{
+  // Idea 2 scores far higher, but the panel wants idea 1 and ruled idea 2 out.
   const scores = [
-    card('a', 1, setNotForHackathon(full(4, 1), true)),
-    card('b', 1, full(4, 1)),
-    card('a', 2, full(2, 0)),
+    card('a', 1, setVerdict(full(3, 0), 'in')),
+    card('b', 1, setVerdict(full(3, 0), 'in')),
+    card('a', 2, setVerdict(full(5, 1), 'out')),
+    card('b', 2, full(5, 1)),
   ]
   const { results } = computeResults(ideas, scores, settings, 1)
   const one = results.find((r) => r.idea.id === 1)
-  check('counts only the judges who flagged it', one.notForHackathon, 1)
-  check('every judge still counts toward the score', one.judgeCount, 2)
-  check('an idea nobody flagged reports zero', results.find((r) => r.idea.id === 2).notForHackathon, 0)
+  const two = results.find((r) => r.idea.id === 2)
 
+  check('counts the judges who want it in', one.wantIn, 2)
+  check('counts the judges who ruled it out', two.wantOut, 1)
+  check('net is in minus out', two.net, -1)
+  check('an undecided judge counts for neither side', two.wantIn, 0)
+  check('the panel decision outranks the better score', results[0].idea.id, 1)
+  check('the better score is still reported', two.score > one.score, true)
+  check('every judge still counts toward the score', two.judgeCount, 2)
+
+  // Same verdict on both sides: the composite is what is left to separate them.
+  const tied = [
+    card('a', 1, setVerdict(full(2, 0), 'in')),
+    card('a', 2, setVerdict(full(4, 1), 'in')),
+  ]
   check(
-    'clearing the flag restores the original values map',
-    JSON.stringify(setNotForHackathon(setNotForHackathon(full(4, 1), true), false)),
-    JSON.stringify(full(4, 1)),
+    'ideas sharing a verdict fall back to the score',
+    computeResults(ideas, tied, settings, 1).results[0].idea.id,
+    2,
   )
-  check('the reserved key cannot collide with a criterion', NOT_FOR_HACKATHON.includes(':'), true)
+
+  // A judge can decide without filling in a single criterion.
+  const decidedOnly = computeResults(ideas, [card('a', 3, setVerdict({}, 'in'))], settings, 1)
+  const three = decidedOnly.results.find((r) => r.idea.id === 3)
+  check('a decision alone puts the idea on the board', three.rank, 1)
+  check('with no ratings it still has no score', three.score, null)
+  check('and it counts as an idea the panel answered', decidedOnly.scoredCount, 1)
 }
 
 rmSync(tmp, { recursive: true, force: true })

@@ -31,7 +31,12 @@ export interface Score {
   judgeId: string
   ideaId: number
   stage: Stage
-  /** criterion key -> raw value. scale: 1..5, binary: 0 | 1. */
+  /**
+   * criterion key -> raw value. scale: 1..5, binary: 0 | 1.
+   *
+   * Keys prefixed `flag:` are reserved for answers that are not criteria and
+   * never reach the composite score — today, the hackathon verdict.
+   */
   values: Record<string, number>
   notes: string
   /** Judge flagged this idea as a personal favourite / must-advance. */

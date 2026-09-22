@@ -67,20 +67,38 @@ export const CRITERIA_BY_KEY: Record<string, Criterion> = Object.fromEntries(
 )
 
 /**
- * A judge's verdict that an idea is worth doing but does not belong in the
- * hackathon. It is a routing decision, not a quality rating, so it carries no
- * weight and never enters the composite score.
+ * The judge's verdict: does this idea belong in the hackathon?
+ *
+ * This is the call the panel acts on. The weighted criteria still explain the
+ * reasoning and order the ideas that share a verdict, but a judge saying "not
+ * this one" is an answer no composite score overrides.
  *
  * It rides inside `Score.values` under a reserved, prefixed key rather than as
  * its own database column: adding a column mid-event would mean every client
  * sending a field the table does not have yet, and PostgREST rejects the whole
  * upsert on an unknown column — every judge's saves would fail until the
- * migration ran. Stored this way it needs no migration at all, and rows written
- * before the flag existed simply lack the key.
+ * migration ran. Stored this way it needs no migration at all.
+ *
+ * 1 = in, 0 = out, and an absent key means the judge has not decided yet.
+ * Three states, because "not yet" and "no" are different answers and only one
+ * of them should keep an idea out.
  */
-export const NOT_FOR_HACKATHON = 'flag:notForHackathon'
+export const VERDICT = 'flag:hackathon'
 
-export const NOT_FOR_HACKATHON_LABEL = 'רעיון טוב — אבל לא להקאתון'
+/**
+ * The key this decision carried while it was only a "good idea, but not for
+ * the hackathon" flag. Nothing reads it: the meaning of the value flipped, so
+ * the old key could not be reused as is, and the cards written with it belong
+ * to the interview round that is already behind us. `setVerdict` strips it, so
+ * a stale flag cannot ride along inside a card a judge has since answered.
+ */
+export const LEGACY_FLAG = 'flag:notForHackathon'
+
+export const VERDICT_QUESTION = 'להכניס את הרעיון להקאתון?'
+
+export const VERDICT_IN_LABEL = 'כן, להקאתון'
+
+export const VERDICT_OUT_LABEL = 'לא להקאתון'
 
 export const DEFAULT_SETTINGS: Settings = {
   weights: {

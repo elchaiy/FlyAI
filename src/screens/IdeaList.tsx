@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react'
-import { compositeScore, isComplete, isNotForHackathon } from '../lib/scoring'
+import { compositeScore, isComplete, verdictOf } from '../lib/scoring'
 import type { Idea, Score, Settings, Stage } from '../lib/types'
 import { IconStar } from '../components/Icons'
 
-type Filter = 'all' | 'todo' | 'done' | 'starred' | 'notForHackathon'
+type Filter = 'all' | 'todo' | 'done' | 'starred' | 'in' | 'out'
 
 interface Props {
   ideas: Idea[]
@@ -34,7 +34,8 @@ export default function IdeaList({ ideas, scores, settings, stage, judgeId, onOp
       if (filter === 'todo' && done) return false
       if (filter === 'done' && !done) return false
       if (filter === 'starred' && !score?.starred) return false
-      if (filter === 'notForHackathon' && !isNotForHackathon(score)) return false
+      if (filter === 'in' && verdictOf(score) !== 'in') return false
+      if (filter === 'out' && verdictOf(score) !== 'out') return false
       if (!q) return true
       return (
         idea.title.toLowerCase().includes(q) ||
@@ -49,7 +50,8 @@ export default function IdeaList({ ideas, scores, settings, stage, judgeId, onOp
     return isComplete(s) || !!s?.skipped
   }).length
 
-  const flaggedCount = ideas.filter((i) => isNotForHackathon(mine.get(i.id))).length
+  const inCount = ideas.filter((i) => verdictOf(mine.get(i.id)) === 'in').length
+  const outCount = ideas.filter((i) => verdictOf(mine.get(i.id)) === 'out').length
 
   const pct = ideas.length ? Math.round((doneCount / ideas.length) * 100) : 0
 
@@ -87,7 +89,8 @@ export default function IdeaList({ ideas, scores, settings, stage, judgeId, onOp
             ['todo', `לשיפוט (${ideas.length - doneCount})`],
             ['done', `הושלמו (${doneCount})`],
             ['starred', 'מסומנים'],
-            ['notForHackathon', `לא להקאתון (${flaggedCount})`],
+            ['in', `להקאתון (${inCount})`],
+            ['out', `לא להקאתון (${outCount})`],
           ] as [Filter, string][]
         ).map(([key, label]) => (
           <button key={key} aria-pressed={filter === key} onClick={() => setFilter(key)}>
@@ -103,7 +106,8 @@ export default function IdeaList({ ideas, scores, settings, stage, judgeId, onOp
           {visible.map((idea) => {
             const score = mine.get(idea.id)
             const done = isComplete(score)
-            const value = score && done ? compositeScore(score, settings.weights) : null
+            const verdict = verdictOf(score)
+            const value = score && !score.skipped ? compositeScore(score, settings.weights) : null
             return (
               <button
                 key={idea.id}
@@ -116,8 +120,10 @@ export default function IdeaList({ ideas, scores, settings, stage, judgeId, onOp
                   <span className="idea-row__meta">
                     <span>{idea.leader}</span>
                     {score?.starred && <IconStar filled />}
-                    {isNotForHackathon(score) && (
-                      <span className="pill pill--accent">לא להקאתון</span>
+                    {verdict && (
+                      <span className={`pill pill--${verdict === 'in' ? 'good' : 'crit'}`}>
+                        {verdict === 'in' ? 'להקאתון' : 'לא להקאתון'}
+                      </span>
                     )}
                     {score?.skipped && <span className="pill">לא דורג</span>}
                     {score && !done && !score.skipped && <span className="pill pill--warn">חלקי</span>}

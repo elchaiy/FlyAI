@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { CRITERIA, NOT_FOR_HACKATHON_LABEL } from '../lib/criteria'
-import { compositeScore, isComplete, isNotForHackathon, setNotForHackathon } from '../lib/scoring'
+import { CRITERIA, VERDICT_IN_LABEL, VERDICT_OUT_LABEL, VERDICT_QUESTION } from '../lib/criteria'
+import { compositeScore, isComplete, setVerdict, verdictOf, type Verdict } from '../lib/scoring'
 import { store } from '../lib/store'
 import type { Idea, Score, Settings, Stage } from '../lib/types'
 import { IconStar } from '../components/Icons'
@@ -68,7 +68,17 @@ export default function ScoreCard({
     [draft, settings.weights],
   )
   const complete = isComplete({ ...draft, updatedAt: '' })
-  const flagged = isNotForHackathon({ ...draft, updatedAt: '' })
+  const verdict = verdictOf({ ...draft, updatedAt: '' })
+
+  // Pressing the chosen answer again returns the card to "not decided yet".
+  // That is a real state, not an empty one: it is where every card starts, and
+  // a judge who changes their mind mid-round needs a way back to it.
+  const decide = (choice: Verdict) =>
+    commit({
+      ...draft,
+      skipped: false,
+      values: setVerdict(draft.values, verdict === choice ? null : choice),
+    })
 
   if (!idea) return <div className="empty">הרעיון לא נמצא.</div>
 
@@ -97,28 +107,34 @@ export default function ScoreCard({
             <IconStar filled={draft.starred} />
           </button>
         </div>
+      </div>
 
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 8,
-            marginTop: 12,
-            paddingTop: 12,
-            borderTop: '1px solid var(--grid)',
-          }}
-        >
-          <span className="muted" style={{ fontSize: 12.5 }}>
-            ציון משוקלל נוכחי
-          </span>
-          <strong style={{ fontSize: 22, fontVariantNumeric: 'tabular-nums' }}>
-            {live === null ? '—' : Math.round(live)}
-            <span className="muted" style={{ fontSize: 13, fontWeight: 450 }}>
-              {' '}
-              / 100
-            </span>
-          </strong>
+      <div className="card verdict">
+        <div className="verdict__q">{VERDICT_QUESTION}</div>
+        <div className="verdict__hint">
+          זו ההחלטה שנספרת. הקריטריונים שלמטה מסבירים אותה ומדרגים בין
+          רעיונות שקיבלו אותה החלטה.
+        </div>
+        <div className="verdict__opts" role="group" aria-label={VERDICT_QUESTION}>
+          <button
+            className="verdict__opt verdict__opt--in"
+            aria-pressed={verdict === 'in'}
+            onClick={() => decide('in')}
+          >
+            {VERDICT_IN_LABEL}
+          </button>
+          <button
+            className="verdict__opt verdict__opt--out"
+            aria-pressed={verdict === 'out'}
+            onClick={() => decide('out')}
+          >
+            {VERDICT_OUT_LABEL}
+          </button>
+        </div>
+        <div className="anchor">
+          {verdict === null
+            ? 'טרם הוחלט — אפשר להחליט גם אחרי הדירוג.'
+            : 'לחיצה נוספת על הבחירה מבטלת אותה.'}
         </div>
       </div>
 
@@ -186,25 +202,17 @@ export default function ScoreCard({
         )
       })}
 
-      <div className="card">
-        <div className="switch-row">
-          <span className="switch-row__body">
-            <span className="switch-row__title">{NOT_FOR_HACKATHON_LABEL}</span>
-            <span className="switch-row__desc">
-              שווה לקדם אותו בערוץ אחר, אבל הוא לא מתאים לפורמט ההקאתון. הסימון לא משפיע על
-              הציון — הוא רק מסמן את הרעיון להמשך טיפול.
-            </span>
+      <div className="card score-total">
+        <span className="muted" style={{ fontSize: 12.5 }}>
+          ציון משוקלל נוכחי
+        </span>
+        <strong style={{ fontSize: 22, fontVariantNumeric: 'tabular-nums' }}>
+          {live === null ? '—' : Math.round(live)}
+          <span className="muted" style={{ fontSize: 13, fontWeight: 450 }}>
+            {' '}
+            / 100
           </span>
-          <button
-            className="switch"
-            role="switch"
-            aria-checked={flagged}
-            aria-label={NOT_FOR_HACKATHON_LABEL}
-            onClick={() =>
-              commit({ ...draft, values: setNotForHackathon(draft.values, !flagged) })
-            }
-          />
-        </div>
+        </strong>
       </div>
 
       <div className="card criterion">

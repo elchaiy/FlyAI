@@ -1,19 +1,26 @@
-import { CRITERIA, CRITERIA_BY_KEY, NOT_FOR_HACKATHON } from './criteria'
+import { CRITERIA, CRITERIA_BY_KEY, LEGACY_FLAG, VERDICT } from './criteria'
 import type { Criterion, Idea, Score, Settings, Stage } from './types'
 
-/** Did this judge mark the idea as worth doing, but not in the hackathon? */
-export function isNotForHackathon(score: Score | undefined): boolean {
-  return score?.values[NOT_FOR_HACKATHON] === 1
+/** A judge's call on an idea: in the hackathon, or out of it. */
+export type Verdict = 'in' | 'out'
+
+/** This judge's verdict, or null while they have not given one. */
+export function verdictOf(score: Score | undefined): Verdict | null {
+  const raw = score?.values[VERDICT]
+  if (raw === 1) return 'in'
+  if (raw === 0) return 'out'
+  return null
 }
 
-/** Returns a values map with the flag set or cleared, leaving ratings intact. */
-export function setNotForHackathon(
+/** Returns a values map with the verdict set or cleared, leaving ratings intact. */
+export function setVerdict(
   values: Record<string, number>,
-  on: boolean,
+  verdict: Verdict | null,
 ): Record<string, number> {
   const next = { ...values }
-  if (on) next[NOT_FOR_HACKATHON] = 1
-  else delete next[NOT_FOR_HACKATHON]
+  delete next[LEGACY_FLAG]
+  if (verdict === null) delete next[VERDICT]
+  else next[VERDICT] = verdict === 'in' ? 1 : 0
   return next
 }
 
@@ -27,8 +34,15 @@ export function clamp(n: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, n))
 }
 
+/**
+ * A card counts as done once the judge has rated every criterion *and* said
+ * whether the idea belongs in the hackathon. The verdict is the answer the
+ * panel acts on, so a card without one is still an open question however
+ * carefully its criteria are filled.
+ */
 export function isComplete(score: Score | undefined): boolean {
   if (!score || score.skipped) return false
+  if (verdictOf(score) === null) return false
   return CRITERIA.every((c) => typeof score.values[c.key] === 'number')
 }
 
@@ -83,8 +97,12 @@ export interface IdeaResult {
   /** Spread between the highest and lowest judge, in points. */
   disagreement: number
   stars: number
-  /** How many judges marked it good but out of scope for the hackathon. */
-  notForHackathon: number
+  /** Judges who want this idea in the hackathon. */
+  wantIn: number
+  /** Judges who ruled it out of the hackathon. */
+  wantOut: number
+  /** `wantIn` minus `wantOut`: the panel's verdict, and the primary sort key. */
+  net: number
   scores: Score[]
   rank: number
 }
@@ -92,12 +110,17 @@ export interface IdeaResult {
 export interface PanelResults {
   results: IdeaResult[]
   calibration: JudgeCalibration[]
-  /** Ideas at least one judge has scored. */
+  /** Ideas at least one judge has answered — rated, decided, or both. */
   scoredCount: number
 }
 
 /**
  * Turn every judge's card into one ranked table.
+ *
+ * Ideas are ordered by the panel's verdict first — how many judges want the
+ * idea in, minus how many ruled it out — and only then by the weighted score,
+ * which breaks ties inside a verdict. The judges' decision is the result; the
+ * criteria explain it.
  *
  * When `normalizePerJudge` is on, each judge's composite scores are re-centred
  * onto the panel's overall mean and spread. That matters when judges split the
@@ -167,6 +190,9 @@ export function computeResults(
       adjList.push(adjust(s, raw))
     }
 
+    const wantIn = ideaScores.filter((s) => verdictOf(s) === 'in').length
+    const wantOut = ideaScores.filter((s) => verdictOf(s) === 'out').length
+
     const perCriterion: Record<string, number | null> = {}
     for (const criterion of CRITERIA) {
       const vals = ideaScores
@@ -184,30 +210,45 @@ export function computeResults(
       perCriterion,
       disagreement: rawList.length > 1 ? Math.max(...rawList) - Math.min(...rawList) : 0,
       stars: ideaScores.filter((s) => s.starred).length,
-      notForHackathon: ideaScores.filter(isNotForHackathon).length,
+      // A verdict counts even from a judge who rated nothing: it is a decision,
+      // not a rating, and the panel acts on it either way.
+      wantIn,
+      wantOut,
+      net: wantIn - wantOut,
       scores: ideaScores,
       rank: 0,
     }
   })
 
   results.sort((a, b) => {
-    if (a.score === null && b.score === null) return a.idea.id - b.idea.id
-    if (a.score === null) return 1
-    if (b.score === null) return -1
-    if (Math.abs(b.score - a.score) > 1e-9) return b.score - a.score
+    // Ideas nobody has touched sink to the bottom, whichever key is compared.
+    const aSeen = seen(a)
+    const bSeen = seen(b)
+    if (!aSeen && !bSeen) return a.idea.id - b.idea.id
+    if (!aSeen) return 1
+    if (!bSeen) return -1
+    if (b.net !== a.net) return b.net - a.net
+    const aScore = a.score ?? -1
+    const bScore = b.score ?? -1
+    if (Math.abs(bScore - aScore) > 1e-9) return bScore - aScore
     // Tie-break: more judges saw it, then more stars — both signal confidence.
     if (b.judgeCount !== a.judgeCount) return b.judgeCount - a.judgeCount
     return b.stars - a.stars
   })
   results.forEach((r, i) => {
-    r.rank = r.score === null ? 0 : i + 1
+    r.rank = seen(r) ? i + 1 : 0
   })
 
   return {
     results,
     calibration: calibration.sort((a, b) => b.count - a.count),
-    scoredCount: results.filter((r) => r.judgeCount > 0).length,
+    scoredCount: results.filter(seen).length,
   }
+}
+
+/** Has any judge rated or decided this idea? */
+function seen(r: IdeaResult): boolean {
+  return r.judgeCount > 0 || r.wantIn + r.wantOut > 0
 }
 
 function key(s: Score): string {
