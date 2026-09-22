@@ -84,7 +84,8 @@ const card = (judgeId, ideaId, vals, extra = {}) => ({
   ...extra,
 })
 
-const full = (n, het = 1) => ({
+/** Every criterion at the same 1..5 value, with heterogeneity overridable. */
+const full = (n, het = n) => ({
   maturity: n,
   infra: n,
   value: n,
@@ -96,14 +97,23 @@ console.log('\nscale + binary normalisation')
 check('scale 1 -> 0', normalizeValue(CRITERIA[0], 1), 0)
 check('scale 5 -> 1', normalizeValue(CRITERIA[0], 5), 1)
 check('scale 3 -> 0.5', normalizeValue(CRITERIA[0], 3), 0.5)
-const binary = CRITERIA.find((c) => c.kind === 'binary')
+// No criterion is binary any more — the team mix became a 1..5 scale — but
+// the kind is still part of the model, so it is checked against one built here.
+const binary = { key: 'b', label: '', hint: '', kind: 'binary' }
+check('every shipped criterion is a scale', CRITERIA.every((c) => c.kind === 'scale'), true)
+check('and each one has five anchors', CRITERIA.every((c) => c.anchors?.length === 5), true)
 check('binary 0 -> 0', normalizeValue(binary, 0), 0)
 check('binary 1 -> 1', normalizeValue(binary, 1), 1)
 
 console.log('\ncomposite score')
-check('all 5s + heterogeneous = 100', compositeScore(card('j', 1, full(5, 1)), settings.weights), 100)
-check('all 1s + homogeneous = 0', compositeScore(card('j', 1, full(1, 0)), settings.weights), 0)
-check('all 3s + homogeneous', compositeScore(card('j', 1, full(3, 0)), settings.weights), 45)
+check('all 5s = 100', compositeScore(card('j', 1, full(5)), settings.weights), 100)
+check('all 1s = 0', compositeScore(card('j', 1, full(1)), settings.weights), 0)
+check('all 3s = 50', compositeScore(card('j', 1, full(3)), settings.weights), 50)
+check(
+  'a mixed team lifts an otherwise average card',
+  compositeScore(card('j', 1, full(3, 5)), settings.weights),
+  50 + 5,
+)
 check('empty card -> null', compositeScore(card('j', 1, {}), settings.weights), null)
 check(
   'partial card renormalises the remaining weights',
@@ -140,7 +150,7 @@ console.log('\nweights actually change the ranking')
 
 console.log('\naggregation across judges')
 {
-  const scores = [card('a', 1, full(5)), card('b', 1, full(1, 0)), card('a', 2, full(3, 0))]
+  const scores = [card('a', 1, full(5)), card('b', 1, full(1)), card('a', 2, full(3))]
   const { results } = computeResults(ideas, scores, settings, 1)
   const one = results.find((r) => r.idea.id === 1)
   check('idea 1 averages two judges', one.score, 50)
@@ -154,7 +164,7 @@ console.log('\naggregation across judges')
 
 console.log('\nskipped cards are excluded entirely')
 {
-  const scores = [card('a', 1, full(5)), card('b', 1, full(1, 0), { skipped: true })]
+  const scores = [card('a', 1, full(5)), card('b', 1, full(1), { skipped: true })]
   const one = computeResults(ideas, scores, settings, 1).results.find((r) => r.idea.id === 1)
   check('skip does not drag the average down', one.score, 100)
   check('skip does not count as a judge', one.judgeCount, 1)
@@ -162,7 +172,7 @@ console.log('\nskipped cards are excluded entirely')
 
 console.log('\nstage isolation')
 {
-  const scores = [card('a', 1, full(5)), { ...card('a', 2, full(1, 0)), stage: 2 }]
+  const scores = [card('a', 1, full(5)), { ...card('a', 2, full(1)), stage: 2 }]
   const s1 = computeResults(ideas, scores, settings, 1)
   const s2 = computeResults(ideas, scores, settings, 2)
   check('stage 1 sees only stage 1 cards', s1.scoredCount, 1)
@@ -183,15 +193,13 @@ console.log('\nper-judge normalisation (split interviews)')
     { id: 5, title: '', leader: '' },
     { id: 6, title: '', leader: '' },
   ]
-  const strict = [
-    card('strict', 1, full(3, 1)),
-    card('strict', 2, full(2, 0)),
-    card('strict', 3, full(1, 0)),
-  ]
+  const strict = [card('strict', 1, full(3)), card('strict', 2, full(2)), card('strict', 3, full(1))]
   const generous = [
-    card('gen', 4, full(5, 1)),
-    card('gen', 5, full(4, 0)),
-    card('gen', 6, full(3, 0)),
+    card('gen', 4, full(5)),
+    card('gen', 5, full(4)),
+    // Deliberately just under the strict judge's best, so the raw ranking the
+    // next check reads is an order and not a tie broken by chance.
+    card('gen', 6, full(3, 2)),
   ]
   const all = [...strict, ...generous]
 
@@ -211,17 +219,17 @@ console.log('\nzero weight removes a criterion from the calculation')
 {
   const noHet = { ...settings, weights: { ...settings.weights, heterogeneous: 0 } }
   check(
-    'homogeneous team no longer penalised',
-    compositeScore(card('j', 1, full(5, 0)), noHet.weights),
+    'a one-domain team no longer penalised',
+    compositeScore(card('j', 1, full(5, 1)), noHet.weights),
     100,
   )
 }
 
 console.log('\nthe judge verdict')
 {
-  const undecided = card('j', 1, full(4, 1))
-  const wantsIn = card('j', 1, setVerdict(full(4, 1), 'in'))
-  const wantsOut = card('j', 1, setVerdict(full(4, 1), 'out'))
+  const undecided = card('j', 1, full(4))
+  const wantsIn = card('j', 1, setVerdict(full(4), 'in'))
+  const wantsOut = card('j', 1, setVerdict(full(4), 'out'))
 
   check('a fresh card has no verdict', verdictOf(undecided), null)
   check('in reads back', verdictOf(wantsIn), 'in')
@@ -229,8 +237,8 @@ console.log('\nthe judge verdict')
   check('the reserved key cannot collide with a criterion', VERDICT.includes(':'), true)
   check(
     'clearing the verdict restores the original values map',
-    JSON.stringify(setVerdict(setVerdict(full(4, 1), 'out'), null)),
-    JSON.stringify(full(4, 1)),
+    JSON.stringify(setVerdict(setVerdict(full(4), 'out'), null)),
+    JSON.stringify(full(4)),
   )
 
   // A decision is not a rating: it must never move the number.
@@ -251,13 +259,13 @@ console.log('\nthe judge verdict')
   )
   check(
     'a skipped card stays incomplete whatever it holds',
-    isComplete(card('j', 1, setVerdict(full(4, 1), 'in'), { skipped: true })),
+    isComplete(card('j', 1, setVerdict(full(4), 'in'), { skipped: true })),
     false,
   )
 
   // The retired flag meant the opposite of what a 1 means now, so a card
   // carrying it must not be read as a verdict — and must not keep it.
-  const legacy = { ...full(4, 1), [LEGACY_FLAG]: 1 }
+  const legacy = { ...full(4), [LEGACY_FLAG]: 1 }
   check('the retired flag does not read as a verdict', verdictOf(card('j', 1, legacy)), null)
   check('answering strips the retired flag', LEGACY_FLAG in setVerdict(legacy, 'out'), false)
 }
@@ -266,10 +274,10 @@ console.log('\nthe verdict leads the ranking')
 {
   // Idea 2 scores far higher, but the panel wants idea 1 and ruled idea 2 out.
   const scores = [
-    card('a', 1, setVerdict(full(3, 0), 'in')),
-    card('b', 1, setVerdict(full(3, 0), 'in')),
-    card('a', 2, setVerdict(full(5, 1), 'out')),
-    card('b', 2, full(5, 1)),
+    card('a', 1, setVerdict(full(3), 'in')),
+    card('b', 1, setVerdict(full(3), 'in')),
+    card('a', 2, setVerdict(full(5), 'out')),
+    card('b', 2, full(5)),
   ]
   const { results } = computeResults(ideas, scores, settings, 1)
   const one = results.find((r) => r.idea.id === 1)
@@ -285,8 +293,8 @@ console.log('\nthe verdict leads the ranking')
 
   // Same verdict on both sides: the composite is what is left to separate them.
   const tied = [
-    card('a', 1, setVerdict(full(2, 0), 'in')),
-    card('a', 2, setVerdict(full(4, 1), 'in')),
+    card('a', 1, setVerdict(full(2), 'in')),
+    card('a', 2, setVerdict(full(4), 'in')),
   ]
   check(
     'ideas sharing a verdict fall back to the score',
