@@ -206,9 +206,9 @@ function Finalists({ state }: { state: ReturnType<typeof useAppState> }) {
   if (!finalists.length) {
     return (
       <div className="empty">
-        עדיין לא נקבעו מעפילים.
+        עדיין לא סומנו מעפילים.
         <br />
-        סיימו את שלב הראיונות ולחצו על "קבע מעפילים" בדשבורד.
+        בדשבורד, סמנו בתיבה שבסוף כל שורה את הרעיונות שעולים להקאתון.
       </div>
     )
   }

@@ -177,9 +177,8 @@ export default function Settings({ state, judge, onSwitchJudge, onToast }: Props
           // Shown whenever stage ב׳ is locked, which is the only time anyone
           // needs to know why it will not respond to a tap.
           <p className="muted" style={{ fontSize: 12, margin: '8px 2px 0' }}>
-            שלב ב׳ נעול כי עדיין לא נקבעו מעפילים. סיימו לדרג בשלב א׳, ואז בדשבורד → "קבע
-            {' '}
-            {settings.shortlistSize} מעפילים".
+            שלב ב׳ נעול כי עדיין לא סומנו מעפילים. סיימו לדרג בשלב א׳, ואז סמנו בדשבורד את
+            הרעיונות שעולים להקאתון — בתיבה שבסוף כל שורה בדירוג.
           </p>
         )}
       </div>

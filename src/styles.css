@@ -674,12 +674,47 @@ textarea.input {
 }
 
 .rank-row {
-  display: block;
+  display: flex;
+  align-items: stretch;
   width: 100%;
+  border-bottom: 1px solid var(--grid);
+}
+
+/* A row opens on tap and the box beside it marks the shortlist. They are two
+   sibling controls, not a button nested inside a button, which is neither
+   valid nor reachable by keyboard. */
+.rank-row__body {
+  flex: 1;
+  min-width: 0;
+  display: block;
   text-align: start;
   padding: 10px 12px;
-  border-bottom: 1px solid var(--grid);
   background: none;
+}
+
+.rank-row__pick {
+  flex: none;
+  width: 48px;
+  display: grid;
+  place-items: center;
+  border-inline-start: 1px solid var(--grid);
+}
+
+.rank-row__box {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 1.5px solid var(--border-strong);
+  font-size: 15px;
+  color: var(--accent-ink);
+  transition: all 0.12s ease;
+}
+
+.rank-row__pick[aria-checked="true"] .rank-row__box {
+  background: var(--accent);
+  border-color: var(--accent);
 }
 
 .rank-row:last-child {

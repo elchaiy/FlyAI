@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { CRITERIA } from '../lib/criteria'
 import { computeResults, verdictOf, type IdeaResult } from '../lib/scoring'
 import type { Idea, Judge, Score, Settings, Stage } from '../lib/types'
+import { IconCheck } from '../components/Icons'
 
 interface Props {
   ideas: Idea[]
@@ -69,6 +70,21 @@ export default function Dashboard({
   const wanted = ranked.filter((r) => r.net > 0).length
   const contested = ranked.filter((r) => r.judgeCount > 1 && r.disagreement >= 25).length
   const activeJudges = calibration.length
+
+  const picked = useMemo(() => new Set(settings.finalists), [settings.finalists])
+
+  /**
+   * The shortlist is marked by hand. The ranking is there to inform that
+   * choice, not to make it: the panel reads the tallies, the notes and the
+   * room, and a composite score a point apart is not a reason to advance one
+   * idea over another. Saved on each tap, like every other change here.
+   */
+  const togglePick = (ideaId: number) => {
+    const next = picked.has(ideaId)
+      ? settings.finalists.filter((id) => id !== ideaId)
+      : [...settings.finalists, ideaId]
+    onSetFinalists(next.sort((a, b) => a - b))
+  }
 
   const exportCsv = () => {
     const header = [
@@ -174,17 +190,24 @@ export default function Dashboard({
                 {settings.normalizePerJudge ? 'מנורמל לפי שופט' : 'ממוצע גולמי'}
               </span>
             </div>
+            {stage === 1 && (
+              <div className="muted" style={{ fontSize: 12, padding: '0 2px 8px' }}>
+                סמנו בתיבה שבסוף השורה את הרעיונות שעולים להקאתון. הקו המקווקו מסמן היכן עובר
+                מספר המעפילים שבהגדרות ({settings.shortlistSize}) — הוא סימן דרך, לא גבול.
+              </div>
+            )}
             <div className="card rank-list">
               {ranked.map((r) => (
                 <RankRow
                   key={r.idea.id}
                   result={r}
-                  inCut={cut > 0 && r.rank <= cut}
                   isCutLine={cut > 0 && r.rank === cut}
-                  finalist={settings.finalists.includes(r.idea.id)}
+                  finalist={picked.has(r.idea.id)}
+                  pickable={stage === 1}
                   expanded={expanded === r.idea.id}
                   judgeName={judgeName}
                   onToggle={() => setExpanded(expanded === r.idea.id ? null : r.idea.id)}
+                  onPick={() => togglePick(r.idea.id)}
                 />
               ))}
             </div>
@@ -290,20 +313,15 @@ export default function Dashboard({
         </button>
         {stage === 1 && (
           <button
-            className="btn btn--primary btn--block"
+            className="btn btn--block"
+            disabled={!settings.finalists.length}
             onClick={() => {
-              // An idea the panel voted against does not get carried into the
-              // hackathon by a shortlist that ran out of candidates, so the
-              // cut can come back shorter than the target — the toast says so.
-              const ids = ranked
-                .filter((r) => r.net >= 0)
-                .slice(0, settings.shortlistSize)
-                .map((r) => r.idea.id)
-              onSetFinalists(ids)
-              onToast(`${ids.length} רעיונות הועברו לשלב ב׳`)
+              if (!confirm('לבטל את הסימון של כל המעפילים?')) return
+              onSetFinalists([])
+              onToast('הסימון נוקה')
             }}
           >
-            קבע {settings.shortlistSize} מעפילים
+            נקה סימון ({settings.finalists.length})
           </button>
         )}
       </div>
@@ -313,113 +331,130 @@ export default function Dashboard({
 
 function RankRow({
   result,
-  inCut,
   isCutLine,
   finalist,
+  pickable,
   expanded,
   judgeName,
   onToggle,
+  onPick,
 }: {
   result: IdeaResult
-  inCut: boolean
   isCutLine: boolean
   finalist: boolean
+  /** Stage 1 is where the panel picks; stage 2 only reports what it picked. */
+  pickable: boolean
   expanded: boolean
   judgeName: Map<string, string>
   onToggle: () => void
+  onPick: () => void
 }) {
   const score = result.score ?? 0
   const band = agreementBand(result.disagreement, result.judgeCount)
 
   return (
-    <button
-      className={`rank-row${inCut ? ' rank-row--in' : ''}${isCutLine ? ' rank-row--cut' : ''}`}
-      onClick={onToggle}
-      aria-expanded={expanded}
+    <div
+      className={`rank-row${finalist ? ' rank-row--in' : ''}${isCutLine ? ' rank-row--cut' : ''}`}
     >
-      <span className="rank-row__top">
-        <span className="rank-row__pos">{result.rank}</span>
-        <span className="rank-row__name">{result.idea.title}</span>
-        <span
-          className={`tally tally--${verdictTone(result)}`}
-          dir="ltr"
-          aria-label={`${result.wantIn} בעד, ${result.wantOut} נגד`}
-        >
-          {result.wantIn}
-          <span className="tally__sep">:</span>
-          {result.wantOut}
+      <button className="rank-row__body" onClick={onToggle} aria-expanded={expanded}>
+        <span className="rank-row__top">
+          <span className="rank-row__pos">{result.rank}</span>
+          <span className="rank-row__name">{result.idea.title}</span>
+          <span
+            className={`tally tally--${verdictTone(result)}`}
+            dir="ltr"
+            aria-label={`${result.wantIn} בעד, ${result.wantOut} נגד`}
+          >
+            {result.wantIn}
+            <span className="tally__sep">:</span>
+            {result.wantOut}
+          </span>
         </span>
-      </span>
 
-      <span className="bar-track">
-        <span
-          className={`bar-fill${inCut ? '' : ' bar-fill--muted'}`}
-          style={{ width: `${Math.max(1.5, score)}%` }}
-        />
-      </span>
+        <span className="bar-track">
+          <span
+            // Greyed out once the panel is net against it: the bar still shows
+            // how the idea scored, without inviting a second look at it.
+            className={`bar-fill${result.net < 0 ? ' bar-fill--muted' : ''}`}
+            style={{ width: `${Math.max(1.5, score)}%` }}
+          />
+        </span>
 
-      <span className="rank-row__meta">
-        <span>{result.idea.leader}</span>
-        <span>·</span>
-        <span>{result.judgeCount} שופטים</span>
-        {result.score !== null && (
+        <span className="rank-row__meta">
+          <span>{result.idea.leader}</span>
+          <span>·</span>
+          <span>{result.judgeCount} שופטים</span>
+          {result.score !== null && (
+            <>
+              <span>·</span>
+              <span>ציון {result.score.toFixed(1)}</span>
+            </>
+          )}
+          {result.stars > 0 && <span className="pill pill--warn">★ {result.stars}</span>}
+          {result.wantIn > 0 && result.wantOut > 0 && (
+            <span className="pill pill--warn">פאנל חצוי</span>
+          )}
+          {finalist && !pickable && <span className="pill pill--accent">מעפיל</span>}
+          {band && band.tone !== 'good' && (
+            <span className={`pill pill--${band.tone}`}>⚠ {band.label}</span>
+          )}
+        </span>
+
+        {expanded && (
           <>
-            <span>·</span>
-            <span>ציון {result.score.toFixed(1)}</span>
+            <span className="crit-bars">
+              {CRITERIA.map((c) => {
+                const v = result.perCriterion[c.key]
+                return (
+                  <span className="crit-bar" key={c.key}>
+                    <span>{c.label}</span>
+                    <span className="crit-bar__track">
+                      <span className="crit-bar__fill" style={{ width: `${v ?? 0}%` }} />
+                    </span>
+                    <span className="crit-bar__val">{v === null ? '—' : Math.round(v)}</span>
+                  </span>
+                )
+              })}
+            </span>
+            <span
+              className="rank-row__meta"
+              style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}
+            >
+              {result.scores.map((s) => {
+                const verdict = verdictOf(s)
+                return (
+                  <span key={s.judgeId}>
+                    <b style={{ color: 'var(--text-secondary)' }}>
+                      {judgeName.get(s.judgeId) ?? 'שופט'}:
+                    </b>{' '}
+                    {verdict && (
+                      <>
+                        <span className={`pill pill--${verdict === 'in' ? 'good' : 'crit'}`}>
+                          {verdict === 'in' ? 'בעד' : 'נגד'}
+                        </span>{' '}
+                      </>
+                    )}
+                    {s.notes || 'ללא הערות'}
+                  </span>
+                )
+              })}
+            </span>
           </>
         )}
-        {result.stars > 0 && <span className="pill pill--warn">★ {result.stars}</span>}
-        {result.wantIn > 0 && result.wantOut > 0 && (
-          <span className="pill pill--warn">פאנל חצוי</span>
-        )}
-        {finalist && <span className="pill pill--accent">מעפיל</span>}
-        {band && band.tone !== 'good' && (
-          <span className={`pill pill--${band.tone}`}>⚠ {band.label}</span>
-        )}
-      </span>
+      </button>
 
-      {expanded && (
-        <>
-          <span className="crit-bars">
-            {CRITERIA.map((c) => {
-              const v = result.perCriterion[c.key]
-              return (
-                <span className="crit-bar" key={c.key}>
-                  <span>{c.label}</span>
-                  <span className="crit-bar__track">
-                    <span className="crit-bar__fill" style={{ width: `${v ?? 0}%` }} />
-                  </span>
-                  <span className="crit-bar__val">{v === null ? '—' : Math.round(v)}</span>
-                </span>
-              )
-            })}
-          </span>
-          <span
-            className="rank-row__meta"
-            style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}
-          >
-            {result.scores.map((s) => {
-              const verdict = verdictOf(s)
-              return (
-                <span key={s.judgeId}>
-                  <b style={{ color: 'var(--text-secondary)' }}>
-                    {judgeName.get(s.judgeId) ?? 'שופט'}:
-                  </b>{' '}
-                  {verdict && (
-                    <>
-                      <span className={`pill pill--${verdict === 'in' ? 'good' : 'crit'}`}>
-                        {verdict === 'in' ? 'בעד' : 'נגד'}
-                      </span>{' '}
-                    </>
-                  )}
-                  {s.notes || 'ללא הערות'}
-                </span>
-              )
-            })}
-          </span>
-        </>
+      {pickable && (
+        <button
+          className="rank-row__pick"
+          role="checkbox"
+          aria-checked={finalist}
+          aria-label={`${result.idea.title} — מעפיל לשלב ב׳`}
+          onClick={onPick}
+        >
+          <span className="rank-row__box">{finalist && <IconCheck />}</span>
+        </button>
       )}
-    </button>
+    </div>
   )
 }
 
