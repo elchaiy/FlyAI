@@ -218,6 +218,16 @@ export class Store {
     return judge
   }
 
+  /**
+   * Uploads a judge the device already knew. `addJudge` only uploads judges it
+   * creates, so a name picked up from an earlier session (or created while the
+   * cloud was down) could score without ever appearing in `flyai_judges`, and
+   * the results would show a score with no name on it. Upsert is idempotent.
+   */
+  ensureJudgeRemote(judge: Judge): void {
+    void this.remote?.pushJudge(judge).catch(() => this.emit({ sync: 'offline' }))
+  }
+
   setIdeas(ideas: Idea[]): void {
     this.emit({ ideas })
     void this.remote?.pushIdeas(ideas).catch(() => this.emit({ sync: 'offline' }))

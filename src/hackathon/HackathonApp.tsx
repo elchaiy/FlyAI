@@ -3,13 +3,15 @@ import { store, type SyncState } from '../lib/store'
 import { loadJudgeId, saveJudgeId, useAppState, useToast } from '../lib/hooks'
 import type { Judge, Score } from '../lib/types'
 import { HACKATHON_IDEAS, HACKATHON_STAGE, SCORE_KEY } from './ideas'
-import { needsAccessCode, unlockWithCode, unlockWithSavedCode } from './cloud'
+import { needsAccessCode, takeCodeFromLink, unlockWithCode, unlockWithSavedCode } from './cloud'
 
 const TITLE = 'מערכת השיפוט של ההקאתון'
 
 export default function HackathonApp() {
   const state = useAppState()
   const [judgeId, setJudgeId] = useState<string | null>(loadJudgeId)
+  // Read once, before routing looks at the hash: a #code= link unlocks by itself.
+  const [linkCode] = useState(takeCodeFromLink)
   const [locked, setLocked] = useState(needsAccessCode)
   const [toast, setToast] = useToast()
   const openSlug = useHashIdea()
@@ -19,26 +21,41 @@ export default function HackathonApp() {
   }, [])
 
   useEffect(() => {
-    if (!locked) return
+    if (!locked || linkCode) return
     void unlockWithSavedCode().then((ok) => ok && setLocked(false))
-  }, [locked])
+  }, [locked, linkCode])
 
-  // A phone that went to sleep can leave saves queued — drain on return.
+  // A phone that went to sleep can leave saves queued — drain on return. If
+  // the first connection failed (the cloud was down, or no signal at boot),
+  // try again from scratch: a pull on a dead connection does nothing, and the
+  // saves would otherwise sit on the phone until someone reloads the page.
   useEffect(() => {
     const onVisible = () => {
-      if (document.visibilityState === 'visible') void store.pull().then(() => store.flush())
+      if (document.visibilityState !== 'visible') return
+      if (store.isConnected) void store.pull().then(() => store.flush())
+      else void store.connect()
     }
     document.addEventListener('visibilitychange', onVisible)
     window.addEventListener('online', onVisible)
+    const retry = window.setInterval(() => {
+      if (!store.isConnected && navigator.onLine) void store.connect()
+    }, 30_000)
     return () => {
       document.removeEventListener('visibilitychange', onVisible)
       window.removeEventListener('online', onVisible)
+      window.clearInterval(retry)
     }
   }, [])
 
-  if (locked) return <GateScreen onUnlock={() => setLocked(false)} />
-
   const judge = state.judges.find((j) => j.id === judgeId) ?? null
+
+  // Make sure the judge's name is in the cloud, so their scores are never nameless.
+  const online = state.sync === 'online'
+  useEffect(() => {
+    if (judge && online) store.ensureJudgeRemote(judge)
+  }, [judge?.id, online])
+
+  if (locked) return <GateScreen initialCode={linkCode} onUnlock={() => setLocked(false)} />
   if (!judge) {
     return (
       <LoginScreen
@@ -383,23 +400,32 @@ function EntryShell({ lead, children }: { lead: string; children: React.ReactNod
   )
 }
 
-function GateScreen({ onUnlock }: { onUnlock: () => void }) {
-  const [code, setCode] = useState('')
+function GateScreen({ onUnlock, initialCode }: { onUnlock: () => void; initialCode: string | null }) {
+  const [code, setCode] = useState(initialCode ?? '')
   const [error, setError] = useState<string | null>(null)
-  const [busy, setBusy] = useState(false)
+  const [busy, setBusy] = useState(!!initialCode)
 
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!code.trim() || busy) return
+  const tryCode = async (value: string) => {
     setBusy(true)
     setError(null)
     try {
-      await unlockWithCode(code.trim())
+      await unlockWithCode(value)
       onUnlock()
     } catch (err) {
       setError((err as Error).message)
       setBusy(false)
     }
+  }
+
+  // Opened from a link that carries the code: unlock without asking.
+  useEffect(() => {
+    if (initialCode) void tryCode(initialCode)
+  }, [])
+
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!code.trim() || busy) return
+    void tryCode(code.trim())
   }
 
   return (

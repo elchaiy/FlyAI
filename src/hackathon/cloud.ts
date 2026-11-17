@@ -27,6 +27,28 @@ export async function unlockWithCode(code: string): Promise<void> {
   }
 }
 
+/**
+ * Reads the access code from a link of the form …/hackathon/#code=XXXX, so a
+ * judge can be sent one link instead of a link plus a code to type. The code
+ * is removed from the address bar straight away: it should not linger on
+ * screen, in a bookmark, or in a home-screen shortcut. The hash never reaches
+ * the server, so GitHub Pages does not log it either.
+ *
+ * This is the same secret as the typed code — whoever has the link gets in —
+ * but it keeps the database credentials out of the public bundle, which
+ * dropping the code altogether would not.
+ */
+export function takeCodeFromLink(): string | null {
+  const m = location.hash.match(/^#code=(.+)$/)
+  if (!m) return null
+  history.replaceState(null, '', location.pathname + location.search)
+  try {
+    return decodeURIComponent(m[1]).trim() || null
+  } catch {
+    return null
+  }
+}
+
 /** A device that unlocked before (on either page) does not type the code again. */
 export async function unlockWithSavedCode(): Promise<boolean> {
   const saved = savedAccessCode()
