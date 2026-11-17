@@ -42,7 +42,6 @@ export default function HackathonApp() {
   if (!judge) {
     return (
       <LoginScreen
-        judges={state.judges}
         onPick={(j) => {
           saveJudgeId(j.id)
           setJudgeId(j.id)
@@ -430,7 +429,12 @@ function GateScreen({ onUnlock }: { onUnlock: () => void }) {
   )
 }
 
-function LoginScreen({ judges, onPick }: { judges: Judge[]; onPick: (j: Judge) => void }) {
+/**
+ * Name entry only — no list of registered judges to pick from. Typing a name
+ * that already exists reuses that judge (store.addJudge matches on the name),
+ * so a judge who returns, or opens a second device, keeps their scores.
+ */
+function LoginScreen({ onPick }: { onPick: (j: Judge) => void }) {
   const [name, setName] = useState('')
 
   const submit = (e: React.FormEvent) => {
@@ -442,21 +446,9 @@ function LoginScreen({ judges, onPick }: { judges: Judge[]; onPick: (j: Judge) =
 
   return (
     <EntryShell lead="הזינו את שמכם כדי להתחיל לשפוט את 12 הרעיונות.">
-      {judges.length > 0 && (
-        <div className="judge-chips">
-          <span className="entry-label">שופטים רשומים</span>
-          <div>
-            {judges.map((j) => (
-              <button key={j.id} type="button" onClick={() => onPick(j)}>
-                {j.name}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
       <form onSubmit={submit}>
         <label className="entry-field">
-          <span>{judges.length ? 'או הזינו שם חדש' : 'מה שמך?'}</span>
+          <span>מה שמך?</span>
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}

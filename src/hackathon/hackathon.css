@@ -162,7 +162,7 @@ html.modal-open .screens { overflow: hidden; }
   box-shadow: 0 24px 60px rgba(0, 0, 0, .4);
   -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
 }
-.entry-label, .entry-field > span { display: block; margin-bottom: 8px; color: var(--cyan); font-size: 14px; font-weight: 700; }
+.entry-field > span { display: block; margin-bottom: 8px; color: var(--cyan); font-size: 14px; font-weight: 700; }
 .entry-field { display: block; margin-bottom: 16px; }
 .entry-field input, .notes-field textarea {
   width: 100%; padding: 14px 16px; border-radius: 16px;
@@ -172,13 +172,6 @@ html.modal-open .screens { overflow: hidden; }
 .entry-field input::placeholder, .notes-field textarea::placeholder { color: var(--dim); }
 .entry-field input:focus, .notes-field textarea:focus { border-color: var(--cyan); box-shadow: 0 0 0 3px rgba(63, 208, 245, .25); }
 .entry-error { margin: -6px 2px 12px; color: var(--bad); font-size: 14px; }
-.judge-chips { margin-bottom: 18px; }
-.judge-chips > div { display: flex; flex-wrap: wrap; gap: 8px; }
-.judge-chips button {
-  padding: 8px 16px; border-radius: 999px; cursor: pointer; font-size: 15px; font-weight: 700;
-  border: 1px solid rgba(255, 255, 255, .22); background: rgba(16, 30, 88, .82);
-}
-.judge-chips button:hover { border-color: var(--cyan); }
 
 /* ---------- Ideas screen: an app-style grid that fits one phone screen ---------- */
 .section { padding: calc(20px + var(--safe-top)) 0 calc(20px + var(--safe-bottom)); }
