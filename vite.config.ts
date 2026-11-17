@@ -29,5 +29,16 @@ export default defineConfig({
       'virtual:ideas': gated ? local('./src/lib/no-ideas.ts') : local('./src/lib/bundled-ideas.ts'),
     },
   },
+  build: {
+    rollupOptions: {
+      // Two pages, one origin: the interview app at the root and the hackathon
+      // judging page under /hackathon/. Sharing the origin lets them share the
+      // judge identity and cloud config held in localStorage.
+      input: {
+        main: local('./index.html'),
+        hackathon: local('./hackathon/index.html'),
+      },
+    },
+  },
   server: { port: 5173 },
 })

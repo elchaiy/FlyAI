@@ -19,3 +19,7 @@ tsconfig.tsbuildinfo
 # Brand key visual — the design source, not needed to build.
 FLY.png
 .vite
+
+# Design source for the hackathon page (a ~1 MB single-file HTML). Its icons,
+# backgrounds and team colours were extracted into src/hackathon/assets.
+new/

@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e28531"/><stop offset="1" stop-color="#e28531"/></linearGradient>
+    <radialGradient id="shine" cx=".22" cy=".12" r=".85"><stop offset="0" stop-color="#fff" stop-opacity=".34"/><stop offset=".55" stop-color="#fff" stop-opacity="0"/></radialGradient>
+    <filter id="lift" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="12" stdDeviation="14" flood-color="#06113a" flood-opacity=".32"/></filter>
+  </defs>
+  <rect width="512" height="512" fill="url(#bg)"/>
+  <rect width="512" height="512" fill="url(#shine)"/>
+  <g filter="url(#lift)">
+    <g id="wing" fill="#fff">
+      <path d="M204 212c-46-12-94-36-136-72 14 56 62 96 134 110Z"/>
+      <path d="M204 262c-40-4-80-18-112-40 18 40 58 62 114 64Z" fill-opacity=".85"/>
+      <path d="M208 298c-30 0-58-8-82-20 18 28 46 42 86 40Z" fill-opacity=".7"/>
+    </g>
+    <use href="#wing" transform="matrix(-1 0 0 1 512 0)"/>
+    <circle cx="256" cy="244" r="50" fill="#fff"/>
+    <path d="M232 258l24-24 24 24" fill="none" stroke="#4f7cf7" stroke-width="13" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M196 372h120" stroke="#fff" stroke-opacity=".6" stroke-width="18" stroke-linecap="round"/>
+  </g>
+</svg>

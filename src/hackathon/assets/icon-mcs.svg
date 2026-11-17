@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0e4159"/><stop offset="1" stop-color="#0e4159"/></linearGradient>
+    <radialGradient id="shine" cx=".22" cy=".12" r=".85"><stop offset="0" stop-color="#fff" stop-opacity=".34"/><stop offset=".55" stop-color="#fff" stop-opacity="0"/></radialGradient>
+    <filter id="lift" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="12" stdDeviation="14" flood-color="#06113a" flood-opacity=".32"/></filter>
+  </defs>
+  <rect width="512" height="512" fill="url(#bg)"/>
+  <rect width="512" height="512" fill="url(#shine)"/>
+  <g filter="url(#lift)">
+    <path d="M20 70l20 -34.64101615137754h40l20 34.64101615137754l-20 34.64101615137754h-40zM80 105l20 -34.64101615137754h40l20 34.64101615137754l-20 34.64101615137754h-40zM20 140l20 -34.64101615137754h40l20 34.64101615137754l-20 34.64101615137754h-40zM80 35l20 -34.64101615137754h40l20 34.64101615137754l-20 34.64101615137754h-40zM412 380l20 -34.64101615137754h40l20 34.64101615137754l-20 34.64101615137754h-40zM352 415l20 -34.64101615137754h40l20 34.64101615137754l-20 34.64101615137754h-40zM412 450l20 -34.64101615137754h40l20 34.64101615137754l-20 34.64101615137754h-40zM352 345l20 -34.64101615137754h40l20 34.64101615137754l-20 34.64101615137754h-40z" fill="none" stroke="#fff" stroke-opacity=".2" stroke-width="6" stroke-linejoin="round"/>
+    <path d="M120 420c40-26 86-26 126 0s86 26 126 0" fill="none" stroke="#fff" stroke-opacity=".28" stroke-width="7" stroke-linecap="round"/>
+    <path d="M370 104 420 154 370 204 320 154Z" fill="#fb7185" stroke="#fff" stroke-width="14" stroke-linejoin="round"/>
+    <path d="M222 262C232 206 262 182 292 172" fill="none" stroke="#fff" stroke-width="20" stroke-linecap="round"/>
+    <path d="M276 148 306 170 284 202" fill="none" stroke="#fff" stroke-width="20" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M140 234l20 20m0-20-20 20M180 234l20 20m0-20-20 20" stroke="#fff" stroke-width="10" stroke-linecap="round"/>
+    <rect x="92" y="274" width="176" height="114" rx="12" fill="#fff" fill-opacity=".14" stroke="#fff" stroke-width="16"/>
+    <rect x="128" y="306" width="104" height="50" rx="25" fill="none" stroke="#fff" stroke-width="13"/>
+  </g>
+</svg>
