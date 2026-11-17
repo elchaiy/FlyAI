@@ -37,6 +37,7 @@ export default defineConfig({
       input: {
         main: local('./index.html'),
         hackathon: local('./hackathon/index.html'),
+        results: local('./hackathon/results/index.html'),
       },
     },
   },

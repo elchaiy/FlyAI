@@ -400,7 +400,7 @@ function EntryShell({ lead, children }: { lead: string; children: React.ReactNod
   )
 }
 
-function GateScreen({ onUnlock, initialCode }: { onUnlock: () => void; initialCode: string | null }) {
+export function GateScreen({ onUnlock, initialCode }: { onUnlock: () => void; initialCode: string | null }) {
   const [code, setCode] = useState(initialCode ?? '')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(!!initialCode)
@@ -494,7 +494,7 @@ function LoginScreen({ onPick }: { onPick: (j: Judge) => void }) {
 
 // ---- small pieces ----------------------------------------------------------
 
-function SyncPill({ sync, error }: { sync: SyncState; error: string | null }) {
+export function SyncPill({ sync, error }: { sync: SyncState; error: string | null }) {
   const label =
     sync === 'online'
       ? 'מסונכרן'
@@ -512,7 +512,7 @@ function SyncPill({ sync, error }: { sync: SyncState; error: string | null }) {
 }
 
 /** The event logo, as on the design page and the poster. */
-function Logo() {
+export function Logo() {
   return (
     <div className="logo" role="img" aria-label="FlyAI Hackathon">
       <svg className="logo-plane" viewBox="0 0 240 70" aria-hidden="true">
