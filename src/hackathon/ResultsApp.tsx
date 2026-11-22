@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { store } from '../lib/store'
 import { useAppState } from '../lib/hooks'
 import type { Judge, Score } from '../lib/types'
-import { HACKATHON_IDEAS, HACKATHON_STAGE, SCORE_KEY, type HackathonIdea } from './ideas'
+import { HACKATHON_IDEAS, HACKATHON_STAGE, METRICS, SCORE_KEY, type HackathonIdea } from './ideas'
 import { needsAccessCode, unlockWithSavedCode } from './cloud'
 import { GateScreen, Logo, SyncPill } from './HackathonApp'
 
@@ -16,6 +16,8 @@ interface Vote {
   judgeId: string
   judgeName: string
   score: number
+  /** Metric key -> 1..10, only for the metrics this judge rated. */
+  metrics: Record<string, number>
   notes: string
 }
 
@@ -24,6 +26,8 @@ interface Row {
   index: number
   votes: Vote[]
   avg: number | null
+  /** Metric key -> average over the judges who rated it. */
+  metricAvg: Record<string, number | null>
   min: number | null
   max: number | null
   rank: number | null
@@ -44,6 +48,9 @@ function buildRows(scores: Score[], judges: Judge[]): Row[] {
         judgeId: s.judgeId,
         judgeName: names.get(s.judgeId) ?? 'שופט לא מזוהה',
         score: s.values[SCORE_KEY],
+        metrics: Object.fromEntries(
+          METRICS.filter((m) => typeof s.values[m.key] === 'number').map((m) => [m.key, s.values[m.key]]),
+        ),
         notes: s.notes,
       }))
       .sort((a, b) => b.score - a.score)
@@ -53,6 +60,12 @@ function buildRows(scores: Score[], judges: Judge[]): Row[] {
       index,
       votes,
       avg: vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null,
+      metricAvg: Object.fromEntries(
+        METRICS.map((m) => {
+          const mv = votes.map((v) => v.metrics[m.key]).filter((x): x is number => typeof x === 'number')
+          return [m.key, mv.length ? mv.reduce((a, b) => a + b, 0) / mv.length : null]
+        }),
+      ),
       min: vals.length ? Math.min(...vals) : null,
       max: vals.length ? Math.max(...vals) : null,
       rank: null,
@@ -159,7 +172,7 @@ export default function ResultsApp() {
         <section className="panel" aria-labelledby="rank-title">
           <div className="panel-head">
             <h2 id="rank-title">דירוג הרעיונות</h2>
-            <p>לפי ממוצע הציונים (1–10). כל נקודה היא שופט; הקו הוא הממוצע. הקישו על רעיון להערות.</p>
+            <p>לפי ממוצע הציון הכללי (1–10). כל נקודה היא שופט; הקו הוא הממוצע. הקישו על רעיון לפירוט המדדים וההערות.</p>
           </div>
 
           <div className="rank-scale" aria-hidden="true">
@@ -197,6 +210,16 @@ export default function ResultsApp() {
 
                 {open === r.idea.id && (
                   <div className="rank-detail">
+                    {r.votes.length > 0 && (
+                      <div className="metric-avgs">
+                        {METRICS.map((m) => (
+                          <span key={m.key}>
+                            <small>{m.label}</small>
+                            <b>{r.metricAvg[m.key] === null ? '—' : r.metricAvg[m.key]!.toFixed(1)}</b>
+                          </span>
+                        ))}
+                      </div>
+                    )}
                     {r.votes.length === 0 ? (
                       <p className="muted">אף שופט עוד לא דירג את הרעיון הזה.</p>
                     ) : (
@@ -206,6 +229,17 @@ export default function ResultsApp() {
                             <span className="vote-score">{v.score}</span>
                             <span className="vote-body">
                               <b>{v.judgeName}</b>
+                              {Object.keys(v.metrics).length > 0 && (
+                                <span className="vote-metrics">
+                                  {/* One isolated chip per metric: mixed Hebrew/English labels
+                                      with numbers scramble when run together as one string. */}
+                                  {METRICS.filter((m) => m.key in v.metrics).map((m) => (
+                                    <span key={m.key}>
+                                      <bdi>{m.label}</bdi> <b>{v.metrics[m.key]}</b>
+                                    </span>
+                                  ))}
+                                </span>
+                              )}
                               {v.notes ? <span>{v.notes}</span> : <span className="muted">ללא הערה</span>}
                             </span>
                           </li>
@@ -278,11 +312,21 @@ function Strip({ row }: { row: Row }) {
 
 function exportCsv(rows: Row[]) {
   const esc = (s: string | number) => `"${String(s).replace(/"/g, '""')}"`
-  const lines = [['דירוג', 'רעיון', 'ממוצע', 'מספר שופטים', 'שופט', 'ציון', 'הערה'].map(esc).join(',')]
+  const fmt = (x: number | null) => (x === null ? '' : x.toFixed(2))
+  const lines = [
+    [
+      'דירוג', 'רעיון', 'ממוצע כללי', ...METRICS.map((m) => 'ממוצע ' + m.label), 'מספר שופטים',
+      'שופט', 'ציון כללי', ...METRICS.map((m) => m.label), 'הערה',
+    ].map(esc).join(','),
+  ]
   for (const r of rows) {
-    const head = [r.rank ?? '', r.idea.title, r.avg === null ? '' : r.avg.toFixed(2), r.votes.length]
-    if (!r.votes.length) lines.push([...head, '', '', ''].map(esc).join(','))
-    for (const v of r.votes) lines.push([...head, v.judgeName, v.score, v.notes].map(esc).join(','))
+    const head = [r.rank ?? '', r.idea.title, fmt(r.avg), ...METRICS.map((m) => fmt(r.metricAvg[m.key])), r.votes.length]
+    if (!r.votes.length) lines.push([...head, '', '', ...METRICS.map(() => ''), ''].map(esc).join(','))
+    for (const v of r.votes) {
+      lines.push(
+        [...head, v.judgeName, v.score, ...METRICS.map((m) => v.metrics[m.key] ?? ''), v.notes].map(esc).join(','),
+      )
+    }
   }
   // The BOM makes Excel read the Hebrew as UTF-8 instead of mojibake.
   const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' })

@@ -33,8 +33,41 @@ export interface HackathonIdea {
 
 export const HACKATHON_STAGE = 2 as const
 
-/** Key inside `Score.values` that holds the 1..10 hackathon score. */
+/** Key inside `Score.values` that holds the 1..10 overall score — the one the ranking uses. */
 export const SCORE_KEY = 'hackathon:score'
+
+export interface Metric {
+  key: string
+  label: string
+  hint: string
+}
+
+/**
+ * The panel's breakdown, each on the same 1..10 scale as the overall score.
+ * They explain the overall score and are averaged in the results, but the
+ * ranking stays on the overall score: it is the judge's own weighing of these.
+ * Stored next to SCORE_KEY inside `Score.values`, so no schema change.
+ */
+export const METRICS: Metric[] = [
+  { key: 'hackathon:pitch', label: 'הצגה / Pitch', hint: 'בהירות היעד: מה מבקשים, ומחויבות הצוות' },
+  { key: 'hackathon:ttm', label: 'TTM', hint: 'כמה מהר אפשר להגיע למוצר בשטח' },
+  { key: 'hackathon:value', label: 'Value עסקי', hint: 'הערך לחטיבה וללקוח' },
+  { key: 'hackathon:strategy', label: 'אסטרטגיה וסקלביליות', hint: 'חיבור לאסטרטגיית החטיבה ויכולת התרחבות' },
+]
+
+/** Words instead of numbers on the judging screen (index 0 == 1). */
+export const SCALE_WORDS = [
+  'חלש מאוד',
+  'חלש',
+  'מתחת לממוצע',
+  'בינוני',
+  'סביר',
+  'טוב',
+  'טוב מאוד',
+  'מצוין',
+  'מעולה',
+  'יוצא דופן',
+]
 
 const raw: Omit<HackathonIdea, 'id'>[] = [
   { slug: 'magic-touch', title: 'Magic Touch', tag: 'Turn vibrations into touch', icon: magicTouch, color: "#183055" },

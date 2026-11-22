@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { store, type SyncState } from '../lib/store'
 import { loadJudgeId, saveJudgeId, useAppState, useToast } from '../lib/hooks'
 import type { Judge, Score } from '../lib/types'
-import { HACKATHON_IDEAS, HACKATHON_STAGE, SCORE_KEY } from './ideas'
+import { HACKATHON_IDEAS, HACKATHON_STAGE, METRICS, SCALE_WORDS, SCORE_KEY } from './ideas'
 import { needsAccessCode, takeCodeFromLink, unlockWithCode, unlockWithSavedCode } from './cloud'
 
 const TITLE = 'מערכת השיפוט של ההקאתון'
@@ -252,12 +252,16 @@ function IdeaSheet({ index, judge, score, onSaved }: SheetProps) {
   const next = HACKATHON_IDEAS[(index + 1) % total]
   const saved = score?.values[SCORE_KEY]
   const savedNotes = score?.notes ?? ''
+  const keys = [SCORE_KEY, ...METRICS.map((m) => m.key)]
+  const savedVals = Object.fromEntries(keys.map((k) => [k, score?.values[k] ?? null]))
 
   // The form is the page: it opens filled with this judge's last answer.
-  const [value, setValue] = useState<number | null>(saved ?? null)
+  const [vals, setVals] = useState<Record<string, number | null>>(savedVals)
   const [notes, setNotes] = useState(savedNotes)
   const dialogRef = useRef<HTMLDivElement>(null)
-  const dirty = value !== (saved ?? null) || notes.trim() !== savedNotes
+  const value = vals[SCORE_KEY]
+  const setVal = (k: string, v: number) => setVals((cur) => ({ ...cur, [k]: v }))
+  const dirty = keys.some((k) => vals[k] !== savedVals[k]) || notes.trim() !== savedNotes
 
   useEffect(() => {
     document.documentElement.classList.add('modal-open')
@@ -271,11 +275,16 @@ function IdeaSheet({ index, judge, score, onSaved }: SheetProps) {
 
   const save = () => {
     if (value === null || !dirty) return
+    const values: Record<string, number> = { ...(score?.values ?? {}) }
+    for (const k of keys) {
+      const v = vals[k]
+      if (v !== null) values[k] = v
+    }
     store.saveScore({
       judgeId: judge.id,
       ideaId: idea.id,
       stage: HACKATHON_STAGE,
-      values: { ...(score?.values ?? {}), [SCORE_KEY]: value },
+      values,
       notes: notes.trim(),
       starred: score?.starred ?? false,
       skipped: false,
@@ -330,27 +339,23 @@ function IdeaSheet({ index, judge, score, onSaved }: SheetProps) {
           </div>
         </header>
 
-        <fieldset className="score-field">
-          <legend>ציון</legend>
-          <div className="score-grid" role="radiogroup" aria-label="ציון מ-1 עד 10">
-            {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
-              <button
-                type="button"
-                key={n}
-                role="radio"
-                aria-checked={value === n}
-                className={value === n ? 'score-chip is-on' : 'score-chip'}
-                onClick={() => setValue(n)}
-              >
-                {n}
-              </button>
-            ))}
-          </div>
-          <div className="score-scale" aria-hidden="true">
-            <span>חלש</span>
-            <span>מצוין</span>
-          </div>
-        </fieldset>
+        <ScaleField
+          main
+          label="ציון כללי"
+          value={value}
+          onChange={(v) => setVal(SCORE_KEY, v)}
+        />
+        <div className="metrics">
+          {METRICS.map((m) => (
+            <ScaleField
+              key={m.key}
+              label={m.label}
+              hint={m.hint}
+              value={vals[m.key]}
+              onChange={(v) => setVal(m.key, v)}
+            />
+          ))}
+        </div>
 
         <label className="notes-field">
           <span>הערה</span>
@@ -363,7 +368,13 @@ function IdeaSheet({ index, judge, score, onSaved }: SheetProps) {
 
         <button className="btn btn-primary btn-block" type="submit" disabled={value === null || !dirty}>
           <IconCheck />
-          {saved === undefined ? 'שמירת השיפוט' : dirty ? 'עדכון השיפוט' : 'השיפוט נשמר'}
+          {value === null
+            ? 'יש לסמן ציון כללי'
+            : saved === undefined
+              ? 'שמירת השיפוט'
+              : dirty
+                ? 'עדכון השיפוט'
+                : 'השיפוט נשמר'}
         </button>
       </form>
 
@@ -379,6 +390,64 @@ function IdeaSheet({ index, judge, score, onSaved }: SheetProps) {
           </svg>
         </button>
       </nav>
+    </div>
+  )
+}
+
+// ---- scale -----------------------------------------------------------------
+
+/**
+ * A 1..10 slider that reads as words, not numbers. It starts empty — no thumb,
+ * "טרם דורג" — so an untouched metric is never saved as a silent middle score.
+ * Values still land as 1..10 for the results. Drawn LTR, like the results
+ * strip: weak on the left, excellent on the right.
+ */
+function ScaleField({
+  label,
+  hint,
+  value,
+  onChange,
+  main = false,
+}: {
+  label: string
+  hint?: string
+  value: number | null
+  onChange: (v: number) => void
+  main?: boolean
+}) {
+  // Read the value on release too: tapping the spot the empty slider already
+  // sits on fires no change event, and that tap must still count.
+  const take = (e: React.SyntheticEvent<HTMLInputElement>) => onChange(Number(e.currentTarget.value))
+  const fill = value === null ? 0 : ((value - 1) / 9) * 100
+  return (
+    <div className={`scale${main ? ' scale--main' : ''}${value === null ? ' is-empty' : ''}`}>
+      <div className="scale__head">
+        <span className="scale__label">
+          {label}
+          {hint && <small>{hint}</small>}
+        </span>
+        <span className="scale__word">{value === null ? 'טרם דורג' : SCALE_WORDS[value - 1]}</span>
+      </div>
+      <input
+        type="range"
+        dir="ltr"
+        min={1}
+        max={10}
+        step={1}
+        value={value ?? 5}
+        aria-label={label}
+        aria-valuetext={value === null ? 'טרם דורג' : SCALE_WORDS[value - 1]}
+        style={{ '--fill': `${fill}%` } as React.CSSProperties}
+        onChange={take}
+        onPointerUp={take}
+        onKeyUp={take}
+      />
+      {main && (
+        <div className="scale__ends" aria-hidden="true">
+          <span>חלש</span>
+          <span>מצוין</span>
+        </div>
+      )}
     </div>
   )
 }

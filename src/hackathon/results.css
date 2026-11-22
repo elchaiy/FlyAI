@@ -91,3 +91,14 @@ html.page-results body {
   .rank-icon { width: 40px; height: 40px; }
   .rank-detail { padding-inline-start: 10px; }
 }
+
+/* Per-metric averages at the top of an opened row. */
+.metric-avgs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+.metric-avgs span {
+  display: flex; flex-direction: column; min-width: 96px; padding: 8px 12px; border-radius: 14px;
+  background: rgba(255, 255, 255, .06); border: 1px solid rgba(255, 255, 255, .12);
+}
+.metric-avgs small { color: var(--muted); font-size: 12.5px; }
+.metric-avgs b { font-size: 20px; font-variant-numeric: tabular-nums; }
+.vote-metrics { display: flex; flex-wrap: wrap; gap: 4px 12px; color: var(--muted); font-size: 13px; }
+.vote-metrics b { color: #fff; font-variant-numeric: tabular-nums; }
