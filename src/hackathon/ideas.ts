@@ -53,6 +53,7 @@ export const METRICS: Metric[] = [
   { key: 'hackathon:ttm', label: 'TTM', hint: 'כמה מהר אפשר להגיע למוצר בשטח' },
   { key: 'hackathon:value', label: 'Value עסקי', hint: 'הערך לחטיבה וללקוח' },
   { key: 'hackathon:strategy', label: 'אסטרטגיה וסקלביליות', hint: 'חיבור לאסטרטגיית החטיבה ויכולת התרחבות' },
+  { key: 'hackathon:creativity', label: 'יצירתיות', hint: 'מקוריות הרעיון והפתרון' },
 ]
 
 /**
