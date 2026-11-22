@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { store, type SyncState } from '../lib/store'
-import { loadJudgeId, saveJudgeId, useAppState, useToast } from '../lib/hooks'
+import { loadJudgeId, saveJudgeId, useAppState } from '../lib/hooks'
 import type { Judge, Score } from '../lib/types'
-import { HACKATHON_IDEAS, HACKATHON_STAGE, METRICS, SCALE_WORDS, SCORE_KEY } from './ideas'
+import { HACKATHON_IDEAS, HACKATHON_STAGE, METRICS, SCALE_WORDS, SCORE_KEY, hasContent } from './ideas'
 import { needsAccessCode, takeCodeFromLink, unlockWithCode, unlockWithSavedCode } from './cloud'
 
 const TITLE = 'מערכת השיפוט של ההקאתון'
@@ -13,7 +13,6 @@ export default function HackathonApp() {
   // Read once, before routing looks at the hash: a #code= link unlocks by itself.
   const [linkCode] = useState(takeCodeFromLink)
   const [locked, setLocked] = useState(needsAccessCode)
-  const [toast, setToast] = useToast()
   const openSlug = useHashIdea()
 
   useEffect(() => {
@@ -69,7 +68,7 @@ export default function HackathonApp() {
 
   const mine = new Map<number, Score>()
   for (const s of state.scores) {
-    if (s.judgeId === judge.id && s.stage === HACKATHON_STAGE && typeof s.values[SCORE_KEY] === 'number') {
+    if (s.judgeId === judge.id && s.stage === HACKATHON_STAGE && hasContent(s.values, s.notes)) {
       mine.set(s.ideaId, s)
     }
   }
@@ -134,7 +133,9 @@ export default function HackathonApp() {
             </header>
             <ul className="ideas-grid">
               {HACKATHON_IDEAS.map((idea) => {
-                const score = mine.get(idea.id)?.values[SCORE_KEY]
+                const card = mine.get(idea.id)
+                // The overall score when there is one; a tick for a card started without it.
+                const score = card ? (card.values[SCORE_KEY] ?? '✓') : undefined
                 return (
                   <li key={idea.id}>
                     <a
@@ -149,7 +150,10 @@ export default function HackathonApp() {
                           <img src={idea.icon} alt="" width={84} height={84} decoding="async" />
                         </span>
                         {score !== undefined && (
-                          <span className="idea-badge" aria-label={`הציון שלך ${score}`}>
+                          <span
+                            className="idea-badge"
+                            aria-label={typeof score === 'number' ? `הציון שלך ${score}` : 'התחלת לשפוט'}
+                          >
                             {score}
                           </span>
                         )}
@@ -172,14 +176,7 @@ export default function HackathonApp() {
           index={openIndex}
           judge={judge}
           score={mine.get(HACKATHON_IDEAS[openIndex].id) ?? null}
-          onSaved={() => setToast('השיפוט נשמר')}
         />
-      )}
-
-      {toast && (
-        <div className="toast" role="status">
-          {toast}
-        </div>
       )}
     </>
   )
@@ -242,55 +239,93 @@ interface SheetProps {
   index: number
   judge: Judge
   score: Score | null
-  onSaved: () => void
 }
 
-function IdeaSheet({ index, judge, score, onSaved }: SheetProps) {
+const KEYS = [SCORE_KEY, ...METRICS.map((m) => m.key)]
+
+/** How long typing in the note may pause before it is saved. */
+const NOTE_SAVE_DELAY = 700
+
+function IdeaSheet({ index, judge, score }: SheetProps) {
   const idea = HACKATHON_IDEAS[index]
   const total = HACKATHON_IDEAS.length
   const prev = HACKATHON_IDEAS[(index - 1 + total) % total]
   const next = HACKATHON_IDEAS[(index + 1) % total]
-  const saved = score?.values[SCORE_KEY]
-  const savedNotes = score?.notes ?? ''
-  const keys = [SCORE_KEY, ...METRICS.map((m) => m.key)]
-  const savedVals = Object.fromEntries(keys.map((k) => [k, score?.values[k] ?? null]))
 
   // The form is the page: it opens filled with this judge's last answer.
-  const [vals, setVals] = useState<Record<string, number | null>>(savedVals)
-  const [notes, setNotes] = useState(savedNotes)
+  const [vals, setVals] = useState<Record<string, number | null>>(() =>
+    Object.fromEntries(KEYS.map((k) => [k, score?.values[k] ?? null])),
+  )
+  const [notes, setNotes] = useState(score?.notes ?? '')
+  const [typing, setTyping] = useState(false)
   const dialogRef = useRef<HTMLDivElement>(null)
-  const value = vals[SCORE_KEY]
-  const setVal = (k: string, v: number) => setVals((cur) => ({ ...cur, [k]: v }))
-  const dirty = keys.some((k) => vals[k] !== savedVals[k]) || notes.trim() !== savedNotes
 
-  useEffect(() => {
-    document.documentElement.classList.add('modal-open')
-    dialogRef.current?.focus()
-    return () => document.documentElement.classList.remove('modal-open')
-  }, [])
+  // Every field saves on its own, with no save button and no required field:
+  // a judge called away mid-card keeps whatever they had filled in. The refs
+  // hold the latest form so the delayed note save and the unmount flush never
+  // write a stale copy over a newer one.
+  const latest = useRef({ vals, notes, score })
+  latest.current = { vals, notes, score }
+  const noteTimer = useRef<number | null>(null)
 
-  const onKey = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === 'Escape') closeIdea()
-  }, [])
-
-  const save = () => {
-    if (value === null || !dirty) return
-    const values: Record<string, number> = { ...(score?.values ?? {}) }
-    for (const k of keys) {
-      const v = vals[k]
-      if (v !== null) values[k] = v
-    }
+  const persist = useCallback(() => {
+    const { vals: v, notes: n, score: s } = latest.current
+    const values: Record<string, number> = { ...(s?.values ?? {}) }
+    for (const k of KEYS) if (v[k] !== null) values[k] = v[k]!
+    // Nothing filled and nothing saved before: don't create an empty card.
+    if (!s && !hasContent(values, n)) return
+    if (s && n.trim() === s.notes && KEYS.every((k) => s.values[k] === values[k])) return
     store.saveScore({
       judgeId: judge.id,
       ideaId: idea.id,
       stage: HACKATHON_STAGE,
       values,
-      notes: notes.trim(),
-      starred: score?.starred ?? false,
+      notes: n.trim(),
+      starred: s?.starred ?? false,
       skipped: false,
     })
-    onSaved()
+  }, [judge.id, idea.id])
+
+  const setVal = (k: string, v: number) => {
+    latest.current = { ...latest.current, vals: { ...latest.current.vals, [k]: v } }
+    setVals(latest.current.vals)
+    persist()
   }
+
+  const onNotes = (text: string) => {
+    setNotes(text)
+    latest.current = { ...latest.current, notes: text }
+    setTyping(true)
+    if (noteTimer.current !== null) clearTimeout(noteTimer.current)
+    noteTimer.current = window.setTimeout(() => {
+      noteTimer.current = null
+      setTyping(false)
+      persist()
+    }, NOTE_SAVE_DELAY)
+  }
+
+  useEffect(() => {
+    document.documentElement.classList.add('modal-open')
+    dialogRef.current?.focus()
+    return () => {
+      document.documentElement.classList.remove('modal-open')
+      // Closing or moving to the next idea mid-sentence still saves the note.
+      if (noteTimer.current !== null) {
+        clearTimeout(noteTimer.current)
+        persist()
+      }
+    }
+  }, [persist])
+
+  const onKey = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') closeIdea()
+  }, [])
+
+  const started = hasContent(
+    Object.fromEntries(KEYS.filter((k) => vals[k] !== null).map((k) => [k, vals[k]!])),
+    notes,
+  )
+  const value = vals[SCORE_KEY]
 
   return (
     <div
@@ -319,10 +354,7 @@ function IdeaSheet({ index, judge, score, onSaved }: SheetProps) {
       <form
         className="gen-page"
         style={{ '--team': idea.color } as React.CSSProperties}
-        onSubmit={(e) => {
-          e.preventDefault()
-          save()
-        }}
+        onSubmit={(e) => e.preventDefault()}
       >
         <header className="gen-head">
           <img className="gen-icon" src={idea.icon} alt="" />
@@ -361,21 +393,30 @@ function IdeaSheet({ index, judge, score, onSaved }: SheetProps) {
           <span>הערה</span>
           <textarea
             value={notes}
-            onChange={(e) => setNotes(e.target.value)}
+            onChange={(e) => onNotes(e.target.value)}
+            onBlur={() => {
+              if (noteTimer.current === null) return
+              clearTimeout(noteTimer.current)
+              noteTimer.current = null
+              setTyping(false)
+              persist()
+            }}
             placeholder="מה בלט לטובה, מה חסר, שאלות לצוות…"
           />
         </label>
 
-        <button className="btn btn-primary btn-block" type="submit" disabled={value === null || !dirty}>
-          <IconCheck />
-          {value === null
-            ? 'יש לסמן ציון כללי'
-            : saved === undefined
-              ? 'שמירת השיפוט'
-              : dirty
-                ? 'עדכון השיפוט'
-                : 'השיפוט נשמר'}
-        </button>
+        <p className={`save-status${started && !typing ? ' is-saved' : ''}`} role="status">
+          {typing ? (
+            'שומר…'
+          ) : started ? (
+            <>
+              <IconCheck />
+              נשמר אוטומטית
+            </>
+          ) : (
+            'כל שדה נשמר מיד כשממלאים אותו'
+          )}
+        </p>
       </form>
 
       <nav className="stage-nav-row" aria-label="מעבר בין רעיונות">

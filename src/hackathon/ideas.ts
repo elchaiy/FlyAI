@@ -55,6 +55,19 @@ export const METRICS: Metric[] = [
   { key: 'hackathon:strategy', label: 'אסטרטגיה וסקלביליות', hint: 'חיבור לאסטרטגיית החטיבה ויכולת התרחבות' },
 ]
 
+/**
+ * True when a judge has put anything at all on a card. Cards save as soon as a
+ * single field is touched, so a card can hold metrics or a note without an
+ * overall score — and it still counts as this judge's work on that idea.
+ */
+export function hasContent(values: Record<string, number>, notes: string): boolean {
+  return (
+    typeof values[SCORE_KEY] === 'number' ||
+    METRICS.some((m) => typeof values[m.key] === 'number') ||
+    notes.trim() !== ''
+  )
+}
+
 /** Words instead of numbers on the judging screen (index 0 == 1). */
 export const SCALE_WORDS = [
   'חלש מאוד',

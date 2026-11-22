@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { store } from '../lib/store'
 import { useAppState } from '../lib/hooks'
 import type { Judge, Score } from '../lib/types'
-import { HACKATHON_IDEAS, HACKATHON_STAGE, METRICS, SCORE_KEY, type HackathonIdea } from './ideas'
+import { HACKATHON_IDEAS, HACKATHON_STAGE, METRICS, SCORE_KEY, hasContent, type HackathonIdea } from './ideas'
 import { needsAccessCode, unlockWithSavedCode } from './cloud'
 import { GateScreen, Logo, SyncPill } from './HackathonApp'
 
@@ -15,7 +15,8 @@ import { GateScreen, Logo, SyncPill } from './HackathonApp'
 interface Vote {
   judgeId: string
   judgeName: string
-  score: number
+  /** Overall 1..10; null when the judge filled metrics or a note but no overall yet. */
+  score: number | null
   /** Metric key -> 1..10, only for the metrics this judge rated. */
   metrics: Record<string, number>
   notes: string
@@ -41,20 +42,19 @@ function buildRows(scores: Score[], judges: Judge[]): Row[] {
   const rows: Row[] = HACKATHON_IDEAS.map((idea, index) => {
     const votes = scores
       .filter(
-        (s) =>
-          s.stage === HACKATHON_STAGE && s.ideaId === idea.id && typeof s.values[SCORE_KEY] === 'number',
+        (s) => s.stage === HACKATHON_STAGE && s.ideaId === idea.id && hasContent(s.values, s.notes),
       )
       .map((s) => ({
         judgeId: s.judgeId,
         judgeName: names.get(s.judgeId) ?? 'שופט לא מזוהה',
-        score: s.values[SCORE_KEY],
+        score: typeof s.values[SCORE_KEY] === 'number' ? s.values[SCORE_KEY] : null,
         metrics: Object.fromEntries(
           METRICS.filter((m) => typeof s.values[m.key] === 'number').map((m) => [m.key, s.values[m.key]]),
         ),
         notes: s.notes,
       }))
-      .sort((a, b) => b.score - a.score)
-    const vals = votes.map((v) => v.score)
+      .sort((a, b) => (b.score ?? -1) - (a.score ?? -1))
+    const vals = votes.map((v) => v.score).filter((x): x is number => x !== null)
     return {
       idea,
       index,
@@ -199,6 +199,7 @@ export default function ResultsApp() {
                     <bdi>{r.idea.title}</bdi>
                     <small>
                       {r.votes.length ? `${r.votes.length} שופטים` : 'עוד לא דורג'}
+                      {r.votes.length > 0 && r.avg === null && ' · ללא ציון כללי'}
                       {r.min !== null && r.max !== null && r.max - r.min >= SPLIT_GAP && (
                         <em className="split-tag">פער גדול בין השופטים</em>
                       )}
@@ -226,7 +227,7 @@ export default function ResultsApp() {
                       <ul>
                         {r.votes.map((v) => (
                           <li key={v.judgeId}>
-                            <span className="vote-score">{v.score}</span>
+                            <span className="vote-score">{v.score ?? '—'}</span>
                             <span className="vote-body">
                               <b>{v.judgeName}</b>
                               {Object.keys(v.metrics).length > 0 && (
@@ -294,6 +295,7 @@ function Strip({ row }: { row: Row }) {
     <span className="strip" aria-hidden="true">
       <span className="strip-track" />
       {row.votes.map((v) => {
+        if (v.score === null) return null
         const k = seen.get(v.score) ?? 0
         seen.set(v.score, k + 1)
         return (
@@ -324,7 +326,7 @@ function exportCsv(rows: Row[]) {
     if (!r.votes.length) lines.push([...head, '', '', ...METRICS.map(() => ''), ''].map(esc).join(','))
     for (const v of r.votes) {
       lines.push(
-        [...head, v.judgeName, v.score, ...METRICS.map((m) => v.metrics[m.key] ?? ''), v.notes].map(esc).join(','),
+        [...head, v.judgeName, v.score ?? '', ...METRICS.map((m) => v.metrics[m.key] ?? ''), v.notes].map(esc).join(','),
       )
     }
   }
