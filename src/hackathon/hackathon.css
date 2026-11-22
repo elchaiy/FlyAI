@@ -401,3 +401,7 @@ html.modal-open .screens { overflow: hidden; }
 }
 .save-status svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
 .save-status.is-saved { color: var(--ok); font-weight: 700; }
+
+/* Grid badges: green tick = every scale filled; amber count = started, not finished. */
+.idea-badge.is-done { background: linear-gradient(100deg, #34d399, #10b981); color: #032b1e; font-size: 16px; }
+.idea-badge.is-partial { background: linear-gradient(100deg, #fbbf24, #f59e0b); color: #3a2300; font-size: 12.5px; }

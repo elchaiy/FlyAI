@@ -72,6 +72,7 @@ export default function HackathonApp() {
       mine.set(s.ideaId, s)
     }
   }
+  const completeCount = [...mine.values()].filter((s) => filledCount(s) === KEYS.length).length
   const openIndex = HACKATHON_IDEAS.findIndex((i) => i.slug === openSlug)
 
   return (
@@ -125,17 +126,19 @@ export default function HackathonApp() {
             <header className="section-head">
               <h2>12 הרעיונות</h2>
               <p>
-                הקישו על רעיון כדי לשפוט אותו · שפטת <b>{mine.size}</b> מתוך {HACKATHON_IDEAS.length}
+                הקישו על רעיון כדי לשפוט אותו
+                <br />
+                הושלמו <b>{completeCount}</b> מתוך {HACKATHON_IDEAS.length}
+                {mine.size > completeCount && <> · בתהליך {mine.size - completeCount}</>}
               </p>
               <div className="progress" aria-hidden="true">
-                <span style={{ width: `${(mine.size / HACKATHON_IDEAS.length) * 100}%` }} />
+                <span style={{ width: `${(completeCount / HACKATHON_IDEAS.length) * 100}%` }} />
               </div>
             </header>
             <ul className="ideas-grid">
               {HACKATHON_IDEAS.map((idea) => {
                 const card = mine.get(idea.id)
-                // The overall score when there is one; a tick for a card started without it.
-                const score = card ? (card.values[SCORE_KEY] ?? '✓') : undefined
+                const filled = card ? filledCount(card) : 0
                 return (
                   <li key={idea.id}>
                     <a
@@ -149,14 +152,23 @@ export default function HackathonApp() {
                         <span className="idea-icon">
                           <img src={idea.icon} alt="" width={84} height={84} decoding="async" />
                         </span>
-                        {score !== undefined && (
-                          <span
-                            className="idea-badge"
-                            aria-label={typeof score === 'number' ? `הציון שלך ${score}` : 'התחלת לשפוט'}
-                          >
-                            {score}
-                          </span>
-                        )}
+                        {/* Green tick only when every scale is filled (the note doesn't count);
+                            otherwise an amber count of how far the card has got. */}
+                        {card &&
+                          (filled === KEYS.length ? (
+                            <span className="idea-badge is-done" aria-label="כל הסעיפים מולאו">
+                              ✓
+                            </span>
+                          ) : (
+                            <span
+                              className="idea-badge is-partial"
+                              aria-label={`מולאו ${filled} מתוך ${KEYS.length} סעיפים`}
+                            >
+                              <bdi dir="ltr">
+                                {filled}/{KEYS.length}
+                              </bdi>
+                            </span>
+                          ))}
                       </span>
                       <span className="idea-name">
                         <bdi>{idea.title}</bdi>
@@ -242,6 +254,11 @@ interface SheetProps {
 }
 
 const KEYS = [SCORE_KEY, ...METRICS.map((m) => m.key)]
+
+/** How many of the scales (overall + metrics) this card has; the note is not counted. */
+function filledCount(s: Score): number {
+  return KEYS.filter((k) => typeof s.values[k] === 'number').length
+}
 
 /** How long typing in the note may pause before it is saved. */
 const NOTE_SAVE_DELAY = 700
