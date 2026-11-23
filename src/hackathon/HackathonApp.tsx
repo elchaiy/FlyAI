@@ -496,9 +496,22 @@ function ScaleField({
   /** Back to "טרם דורג" — offered only once the scale has a value. */
   onClear: () => void
 }) {
-  // Read the value on release too: tapping the spot the empty slider already
-  // sits on fires no change event, and that tap must still count.
+  // Keyboard, and Android's native drag, still go through the input's own value.
   const take = (e: React.SyntheticEvent<HTMLInputElement>) => onChange(Number(e.currentTarget.value))
+
+  // Touch and mouse are read from where the finger is, not from the input.
+  // iOS Safari never moves a range input to a tapped point — only a drag that
+  // starts on the thumb moves it — so a tap on an empty slider used to save
+  // its hidden resting value, 5 ("סביר"), wherever the judge tapped.
+  // The value is set on release or on a sideways drag, never on touch-down,
+  // so a vertical swipe that starts on a slider scrolls without scoring.
+  const thumb = main ? 30 : 26
+  const fromPointer = (e: React.PointerEvent<HTMLInputElement>) => {
+    const r = e.currentTarget.getBoundingClientRect()
+    const frac = Math.min(1, Math.max(0, (e.clientX - r.left - thumb / 2) / (r.width - thumb)))
+    onChange(Math.round(1 + frac * 9))
+  }
+  const drag = useRef<{ x: number; moved: boolean } | null>(null)
   const fill = value === null ? 0 : ((value - 1) / 9) * 100
   return (
     <div className={`scale${main ? ' scale--main' : ''}${value === null ? ' is-empty' : ''}`}>
@@ -528,8 +541,25 @@ function ScaleField({
           aria-valuetext={value === null ? 'טרם דורג' : SCALE_WORDS[value - 1]}
           style={{ '--fill': `${fill}%` } as React.CSSProperties}
           onChange={take}
-          onPointerUp={take}
           onKeyUp={take}
+          onPointerDown={(e) => {
+            drag.current = { x: e.clientX, moved: false }
+          }}
+          onPointerMove={(e) => {
+            const d = drag.current
+            if (!d) return
+            if (!d.moved && Math.abs(e.clientX - d.x) < 6) return
+            d.moved = true
+            fromPointer(e)
+          }}
+          onPointerUp={(e) => {
+            if (drag.current) fromPointer(e)
+            drag.current = null
+          }}
+          onPointerCancel={() => {
+            // The browser took the gesture over (a vertical scroll): no score.
+            drag.current = null
+          }}
         />
         {suggestion !== null && suggestion !== value && (
           <span
