@@ -405,3 +405,19 @@ html.modal-open .screens { overflow: hidden; }
 /* Grid badges: green tick = every scale filled; amber count = started, not finished. */
 .idea-badge.is-done { background: linear-gradient(100deg, #34d399, #10b981); color: #032b1e; font-size: 16px; }
 .idea-badge.is-partial { background: linear-gradient(100deg, #fbbf24, #f59e0b); color: #3a2300; font-size: 12.5px; }
+
+/* Overall score, now below the metrics: a ghost mark for the suggested value and a one-tap adopt. */
+.scale__track { position: relative; }
+.scale__mark {
+  position: absolute; top: 50%; width: 4px; height: 22px; border-radius: 4px; pointer-events: none;
+  left: calc(15px + (100% - 30px) * var(--at)); translate: -50% -50%;
+  background: var(--sunset); box-shadow: 0 0 10px rgba(255, 154, 107, .7);
+}
+.scale__ends { align-items: center; gap: 8px; }
+.suggest-btn {
+  padding: 4px 12px; border-radius: 999px; cursor: pointer; direction: rtl;
+  border: 1px solid rgba(255, 154, 107, .6); background: rgba(255, 154, 107, .14);
+  color: #ffd9c6; font-size: 13px;
+}
+.suggest-btn b { color: #fff; }
+.suggest-btn:hover { background: rgba(255, 154, 107, .24); }

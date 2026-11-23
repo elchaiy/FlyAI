@@ -57,6 +57,20 @@ export const METRICS: Metric[] = [
 ]
 
 /**
+ * Hackathon judging restarted from zero at this moment. Cards saved before it
+ * are ignored everywhere — the judging grid and the results — not just deleted
+ * from the cloud: a judge's phone keeps its own copy, and the store's merge
+ * would otherwise put it straight back on that phone (and upload it again on
+ * the next edit). To reset again, move this forward and redeploy.
+ */
+export const RESET_AT = '2026-11-23T09:12:00.000Z'
+
+/** A hackathon card that belongs to the current round of judging. */
+export function isCurrent(s: { stage: number; updatedAt: string }): boolean {
+  return s.stage === HACKATHON_STAGE && s.updatedAt >= RESET_AT
+}
+
+/**
  * True when a judge has put anything at all on a card. Cards save as soon as a
  * single field is touched, so a card can hold metrics or a note without an
  * overall score — and it still counts as this judge's work on that idea.

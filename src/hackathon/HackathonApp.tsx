@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { store, type SyncState } from '../lib/store'
 import { loadJudgeId, saveJudgeId, useAppState } from '../lib/hooks'
 import type { Judge, Score } from '../lib/types'
-import { HACKATHON_IDEAS, HACKATHON_STAGE, METRICS, SCALE_WORDS, SCORE_KEY, hasContent } from './ideas'
+import { HACKATHON_IDEAS, HACKATHON_STAGE, METRICS, SCALE_WORDS, SCORE_KEY, hasContent, isCurrent } from './ideas'
 import { needsAccessCode, takeCodeFromLink, unlockWithCode, unlockWithSavedCode } from './cloud'
 
 const TITLE = 'מערכת השיפוט של ההקאתון'
@@ -68,7 +68,7 @@ export default function HackathonApp() {
 
   const mine = new Map<number, Score>()
   for (const s of state.scores) {
-    if (s.judgeId === judge.id && s.stage === HACKATHON_STAGE && hasContent(s.values, s.notes)) {
+    if (s.judgeId === judge.id && isCurrent(s) && hasContent(s.values, s.notes)) {
       mine.set(s.ideaId, s)
     }
   }
@@ -344,6 +344,14 @@ function IdeaSheet({ index, judge, score }: SheetProps) {
   )
   const value = vals[SCORE_KEY]
 
+  // Average of the metrics, offered for the overall score — only once every
+  // metric is filled, so the hint never rests on half the picture. The judge
+  // still decides: it is a suggestion to adopt, never written by itself.
+  const metricVals = METRICS.map((m) => vals[m.key])
+  const suggestion = metricVals.every((v): v is number => v !== null)
+    ? Math.round(metricVals.reduce((a, b) => a + b, 0) / metricVals.length)
+    : null
+
   return (
     <div
       className="viewer"
@@ -388,12 +396,6 @@ function IdeaSheet({ index, judge, score }: SheetProps) {
           </div>
         </header>
 
-        <ScaleField
-          main
-          label="ציון כללי"
-          value={value}
-          onChange={(v) => setVal(SCORE_KEY, v)}
-        />
         <div className="metrics">
           {METRICS.map((m) => (
             <ScaleField
@@ -405,6 +407,15 @@ function IdeaSheet({ index, judge, score }: SheetProps) {
             />
           ))}
         </div>
+        {/* The overall score comes last, after the judge has gone through the
+            metrics, and once all of them are filled it offers their average. */}
+        <ScaleField
+          main
+          label="ציון כללי"
+          value={value}
+          onChange={(v) => setVal(SCORE_KEY, v)}
+          suggestion={suggestion}
+        />
 
         <label className="notes-field">
           <span>הערה</span>
@@ -466,12 +477,15 @@ function ScaleField({
   value,
   onChange,
   main = false,
+  suggestion = null,
 }: {
   label: string
   hint?: string
   value: number | null
   onChange: (v: number) => void
   main?: boolean
+  /** A recommended value: marked on the track, adopted with one tap. */
+  suggestion?: number | null
 }) {
   // Read the value on release too: tapping the spot the empty slider already
   // sits on fires no change event, and that tap must still count.
@@ -486,24 +500,38 @@ function ScaleField({
         </span>
         <span className="scale__word">{value === null ? 'טרם דורג' : SCALE_WORDS[value - 1]}</span>
       </div>
-      <input
-        type="range"
-        dir="ltr"
-        min={1}
-        max={10}
-        step={1}
-        value={value ?? 5}
-        aria-label={label}
-        aria-valuetext={value === null ? 'טרם דורג' : SCALE_WORDS[value - 1]}
-        style={{ '--fill': `${fill}%` } as React.CSSProperties}
-        onChange={take}
-        onPointerUp={take}
-        onKeyUp={take}
-      />
+      <div className="scale__track">
+        <input
+          type="range"
+          dir="ltr"
+          min={1}
+          max={10}
+          step={1}
+          value={value ?? 5}
+          aria-label={label}
+          aria-valuetext={value === null ? 'טרם דורג' : SCALE_WORDS[value - 1]}
+          style={{ '--fill': `${fill}%` } as React.CSSProperties}
+          onChange={take}
+          onPointerUp={take}
+          onKeyUp={take}
+        />
+        {suggestion !== null && suggestion !== value && (
+          <span
+            className="scale__mark"
+            style={{ '--at': (suggestion - 1) / 9 } as React.CSSProperties}
+            aria-hidden="true"
+          />
+        )}
+      </div>
       {main && (
-        <div className="scale__ends" aria-hidden="true">
-          <span>חלש</span>
-          <span>מצוין</span>
+        <div className="scale__ends">
+          <span aria-hidden="true">חלש</span>
+          {suggestion !== null && suggestion !== value && (
+            <button type="button" className="suggest-btn" onClick={() => onChange(suggestion)}>
+              המלצה לפי המדדים: <b>{SCALE_WORDS[suggestion - 1]}</b> · אימוץ
+            </button>
+          )}
+          <span aria-hidden="true">מצוין</span>
         </div>
       )}
     </div>

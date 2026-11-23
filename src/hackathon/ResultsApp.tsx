@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { store } from '../lib/store'
 import { useAppState } from '../lib/hooks'
 import type { Judge, Score } from '../lib/types'
-import { HACKATHON_IDEAS, HACKATHON_STAGE, METRICS, SCORE_KEY, hasContent, type HackathonIdea } from './ideas'
+import { HACKATHON_IDEAS, METRICS, SCORE_KEY, hasContent, isCurrent, type HackathonIdea } from './ideas'
 import { needsAccessCode, unlockWithSavedCode } from './cloud'
 import { GateScreen, Logo, SyncPill } from './HackathonApp'
 
@@ -42,7 +42,7 @@ function buildRows(scores: Score[], judges: Judge[]): Row[] {
   const rows: Row[] = HACKATHON_IDEAS.map((idea, index) => {
     const votes = scores
       .filter(
-        (s) => s.stage === HACKATHON_STAGE && s.ideaId === idea.id && hasContent(s.values, s.notes),
+        (s) => isCurrent(s) && s.ideaId === idea.id && hasContent(s.values, s.notes),
       )
       .map((s) => ({
         judgeId: s.judgeId,
