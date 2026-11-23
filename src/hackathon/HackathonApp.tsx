@@ -288,7 +288,11 @@ function IdeaSheet({ index, judge, score }: SheetProps) {
   const persist = useCallback(() => {
     const { vals: v, notes: n, score: s } = latest.current
     const values: Record<string, number> = { ...(s?.values ?? {}) }
-    for (const k of KEYS) if (v[k] !== null) values[k] = v[k]!
+    for (const k of KEYS) {
+      // A cleared scale is removed from the card, not stored as some value.
+      if (v[k] !== null) values[k] = v[k]!
+      else delete values[k]
+    }
     // Nothing filled and nothing saved before: don't create an empty card.
     if (!s && !hasContent(values, n)) return
     if (s && n.trim() === s.notes && KEYS.every((k) => s.values[k] === values[k])) return
@@ -303,7 +307,7 @@ function IdeaSheet({ index, judge, score }: SheetProps) {
     })
   }, [judge.id, idea.id])
 
-  const setVal = (k: string, v: number) => {
+  const setVal = (k: string, v: number | null) => {
     latest.current = { ...latest.current, vals: { ...latest.current.vals, [k]: v } }
     setVals(latest.current.vals)
     persist()
@@ -404,6 +408,7 @@ function IdeaSheet({ index, judge, score }: SheetProps) {
               hint={m.hint}
               value={vals[m.key]}
               onChange={(v) => setVal(m.key, v)}
+              onClear={() => setVal(m.key, null)}
             />
           ))}
         </div>
@@ -414,6 +419,7 @@ function IdeaSheet({ index, judge, score }: SheetProps) {
           label="ציון כללי"
           value={value}
           onChange={(v) => setVal(SCORE_KEY, v)}
+          onClear={() => setVal(SCORE_KEY, null)}
           suggestion={suggestion}
         />
 
@@ -478,6 +484,7 @@ function ScaleField({
   onChange,
   main = false,
   suggestion = null,
+  onClear,
 }: {
   label: string
   hint?: string
@@ -486,6 +493,8 @@ function ScaleField({
   main?: boolean
   /** A recommended value: marked on the track, adopted with one tap. */
   suggestion?: number | null
+  /** Back to "טרם דורג" — offered only once the scale has a value. */
+  onClear: () => void
 }) {
   // Read the value on release too: tapping the spot the empty slider already
   // sits on fires no change event, and that tap must still count.
@@ -498,7 +507,14 @@ function ScaleField({
           {label}
           {hint && <small>{hint}</small>}
         </span>
-        <span className="scale__word">{value === null ? 'טרם דורג' : SCALE_WORDS[value - 1]}</span>
+        <span className="scale__value">
+          <span className="scale__word">{value === null ? 'טרם דורג' : SCALE_WORDS[value - 1]}</span>
+          {value !== null && (
+            <button type="button" className="clear-btn" onClick={onClear} aria-label={`ניקוי ${label}`}>
+              ✕ ניקוי
+            </button>
+          )}
+        </span>
       </div>
       <div className="scale__track">
         <input

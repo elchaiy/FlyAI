@@ -421,3 +421,17 @@ html.modal-open .screens { overflow: hidden; }
 }
 .suggest-btn b { color: #fff; }
 .suggest-btn:hover { background: rgba(255, 154, 107, .24); }
+
+/* Clearing a scale: a small chip beside its value word. */
+.scale__value { display: inline-flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.clear-btn {
+  padding: 2px 9px; border-radius: 999px; cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, .22); background: rgba(3, 10, 38, .45);
+  color: var(--muted); font-size: 12px; line-height: 1.5;
+}
+.clear-btn:hover { color: #fff; border-color: rgba(255, 255, 255, .45); }
+/* The chip is drawn small, but the finger target is not: an invisible margin
+   brings it to ~36px tall. It grows less downwards, so a tap on the low end
+   of the slider just below doesn't land on "clear" instead. */
+.clear-btn { position: relative; }
+.clear-btn::before { content: ""; position: absolute; inset: -9px -8px -5px; }
